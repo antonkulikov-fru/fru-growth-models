@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cause&Cure Growth Model</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #cbd5e1;
+      --bad: #b91c1c;
+    }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top right, #dff5f1 0%, #f4f6f8 45%);
+      color: var(--ink);
+      font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+      line-height: 1.35;
+    }
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .field {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+    }
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .field input, .field select {
+      width: 100%;
+      border: 1px solid #94a3b8;
+      border-radius: 7px;
+      padding: 6px 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 12px;
+      overflow-x: auto;
+    }
+    table {
+      border-collapse: collapse;
+      min-width: 920px;
+      width: 100%;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 6px 8px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    th:first-child, td:first-child {
+      text-align: left;
+      position: sticky;
+      left: 0;
+      background: #f8fafc;
+      z-index: 1;
+    }
+    th {
+      background: #e2e8f0;
+      font-weight: 700;
+    }
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .bad {
+      color: var(--bad);
+      font-weight: 700;
+    }
+    .blank {
+      background: #eef2f7;
+      color: #94a3b8;
+      text-align: center;
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 12px;
+      border: 1px solid var(--line);
+      margin-right: 5px;
+      margin-top: 4px;
+    }
+    ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <div class="title">Cause&Cure Growth Model (2024-2028)</div>
+        <div class="sub" id="sourceLine"></div>
+      </div>
+      <div class="sub" id="coverageLine"></div>
+    </div>
+
+    <div class="grid">
+      <div class="field"><label>Target 2026 GPV ($M)</label><input id="t2026" type="number" step="1" /></div>
+      <div class="field"><label>Target 2027 GPV ($M)</label><input id="t2027" type="number" step="1" /></div>
+      <div class="field"><label>Target 2028 GPV ($M)</label><input id="t2028" type="number" step="1" /></div>
+      <div class="field"><label>Take Rate (ARR)</label><input id="takeRate" type="number" step="0.001" min="0" max="1" /></div>
+      <div class="field"><label>Recurring LT (months)</label><input id="ltMonths" type="number" step="1" min="1" /></div>
+      <div class="field"><label>One-time Year2 Repeat Rate</label><input id="otRepeat" type="number" step="0.01" min="0" max="1" /></div>
+      <div class="field"><label>Existing-Account Expansion Rate</label><input id="existingExpansion" type="number" step="0.01" min="0" /></div>
+      <div class="field"><label>New Donor Recurring Share</label><input id="newRecShare" type="number" step="0.01" min="0" max="1" /></div>
+      <div class="field"><label>Max New 10M+ Logos / Year</label><input id="maxWhales" type="number" step="1" min="0" /></div>
+      <div class="field">
+        <label>GPV per New Logo Metric</label>
+        <select id="logoMetric">
+          <option value="median">Median (recommended)</option>
+          <option value="avg">Average</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <table id="toplineTable"></table>
+      <div class="note">C&amp;C = Total FRU GPV - Faith-based GPV. Units are $M unless noted. 2024-2025 are historical actuals; planning requirement starts in 2026. Modeled total is backsolved to target by design.</div>
+    </div>
+
+    <div class="card">
+      <table id="cohortTable"></table>
+      <div class="note">Rows are non-overlapping cohorts. 2024 is Legacy cohort due to no pre-2024 history.</div>
+
+      <div id="assumptionsBlock">
+        <strong>Assumptions</strong>
+        <ul>
+          <li>Cause&amp;Cure GPV = Total FRU GPV - Faith-based GPV.</li>
+          <li>2024 and 2025 historical base is computed from raw reports with the same formula.</li>
+          <li>2024 is modeled as Legacy cohort because pre-2024 data is unavailable.</li>
+          <li>Detailed segmentation uses FRU Sector/Subsector (primary) and NTEE (secondary for reconciliation).</li>
+          <li>Mapping priority for 2024 known accounts: Account ID match, then normalized name/domain fallback, then Unclassified.</li>
+          <li>Recurring donor lifetime is fixed at <span id="assumptionLt"></span> months with annual carryover <span id="assumptionCarry"></span>.</li>
+          <li>New donors in year-1 split as one-time/recurring = <span id="assumptionSplit"></span>.</li>
+          <li>One-time donor year-2 repeat rate = <span id="assumptionOt"></span>.</li>
+          <li>Existing-account expansion rate (new donor inflow inside existing logos) = <span id="assumptionExp"></span>.</li>
+          <li>Observed KPI: 2024 legacy cohort NRR in 2025 = <span id="observedNrr"></span> (equivalent year-1/year-2 ratio: <span id="observedY1Y2"></span>).</li>
+          <li>Model uses fixed cohort year-1/year-2 ratio = <span id="modelY1Y2"></span> (derived from data assumptions, not an interactive input).</li>
+          <li>Default is no structural bracket-mix shift in 2026-2028 (2025 new-logo mix baseline), with manual share overrides for planning.</li>
+          <li>Constraint: &lt;= <span id="assumptionWhales"></span> new 10M+ logos per year.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <table id="mixTable"></table>
+      <div class="note">New-cohort bracket GPV mix defaults to 2025 new C&amp;C accounts. You can edit shares; model normalizes them to 100%.</div>
+    </div>
+
+    <div class="card">
+      <table id="acqTable"></table>
+      <div class="note">Acquisition targets are derived from required new cohort GPV each year and bracket-level year-1 GPV per logo.</div>
+    </div>
+  </div>
+
+  <script src="./model/growth_model.data.js"></script>
+  <script>
+    const data = window.GROWTH_MODEL_DATA;
+
+    const fmtM = (n) => `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 1 })}`;
+    const fmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const pct = (n) => `${(n * 100).toFixed(1)}%`;
+
+    function byId(id) { return document.getElementById(id); }
+
+    const controls = {
+      t2026: byId("t2026"),
+      t2027: byId("t2027"),
+      t2028: byId("t2028"),
+      takeRate: byId("takeRate"),
+      ltMonths: byId("ltMonths"),
+      otRepeat: byId("otRepeat"),
+      existingExpansion: byId("existingExpansion"),
+      newRecShare: byId("newRecShare"),
+      maxWhales: byId("maxWhales"),
+      logoMetric: byId("logoMetric")
+    };
+
+    let bracketShareInputs = [];
+
+    function initControls() {
+      controls.t2026.value = data.targets.cc_gpv_m["2026"];
+      controls.t2027.value = data.targets.cc_gpv_m["2027"];
+      controls.t2028.value = data.targets.cc_gpv_m["2028"];
+      controls.takeRate.value = data.targets.take_rate;
+      controls.ltMonths.value = data.assumptions.recurring_donor_lifetime_months;
+      controls.otRepeat.value = data.assumptions.one_time_donor_year2_repeat_rate;
+      controls.existingExpansion.value = data.assumptions.existing_account_expansion_rate ?? 0.93;
+      controls.newRecShare.value = data.assumptions.new_donor_year1_split.recurring;
+      controls.maxWhales.value = data.assumptions.max_new_whales_per_year;
+      controls.logoMetric.value = "median";
+
+      const mixTable = byId("mixTable");
+      const dist = data.segmentation.cc_2025_new_accounts_distribution;
+      mixTable.innerHTML = [
+        "<thead><tr><th>Bracket</th><th>Default Share of New GPV (%)</th><th>Editable Share (%)</th></tr></thead><tbody>",
+        ...dist.map((b) => `<tr><td>${b.label}</td><td>${fmt(b.share_of_gpv)}</td><td><input class=\"mix-share\" data-bracket-id=\"${b.id}\" type=\"number\" step=\"0.1\" min=\"0\" value=\"${fmt(b.share_of_gpv)}\" style=\"width:110px\" /></td></tr>`),
+        "</tbody>"
+      ].join("");
+
+      bracketShareInputs = Array.from(document.querySelectorAll(".mix-share"));
+      bracketShareInputs.forEach((el) => el.addEventListener("input", render));
+      Object.values(controls).forEach((el) => el.addEventListener("input", render));
+    }
+
+    function computeModel() {
+      const targets = {
+        2024: Number(data.targets.cc_gpv_m["2024"]),
+        2025: Number(data.targets.cc_gpv_m["2025"]),
+        2026: Number(controls.t2026.value),
+        2027: Number(controls.t2027.value),
+        2028: Number(controls.t2028.value)
+      };
+
+      const takeRate = Number(controls.takeRate.value);
+      const ltMonths = Number(controls.ltMonths.value);
+      const oneTimeRepeat = Number(controls.otRepeat.value);
+      const existingExpansion = Number(controls.existingExpansion.value);
+      const newRecurringShare = Number(controls.newRecShare.value);
+      const maxWhales = Number(controls.maxWhales.value);
+      const recurringCarry = Math.pow(1 - 1 / ltMonths, 12);
+
+      const modelY1Y2Ratio = Number(data.assumptions.new_account_year1_to_year2_gpv_ratio || 0.74);
+      const ramp = modelY1Y2Ratio > 0 ? (1 / modelY1Y2Ratio) : 1.35;
+
+      const h = data.historical;
+      const legacy2024 = (h.cc_one_time_recurring["2024"].one_time + h.cc_one_time_recurring["2024"].recurring) / 1_000_000;
+      const legacy2025 = h.cohort_anchor_2025.legacy_contribution / 1_000_000;
+      const observedNrr = legacy2024 > 0 ? legacy2025 / legacy2024 : 0;
+      const observedY1Y2Ratio = observedNrr > 0 ? 1 / observedNrr : 0;
+
+      const cohorts = [
+        { id: "legacy_2024", label: "Legacy (2024 base)", startYear: 2024 },
+        { id: "cohort_2025", label: "2025 New", startYear: 2025 },
+        { id: "cohort_2026", label: "2026 New", startYear: 2026 },
+        { id: "cohort_2027", label: "2027 New", startYear: 2027 },
+        { id: "cohort_2028", label: "2028 New", startYear: 2028 }
+      ];
+      const years = [2024, 2025, 2026, 2027, 2028];
+
+      const state = {};
+      cohorts.forEach((c) => {
+        state[c.id] = {};
+        years.forEach((y) => {
+          state[c.id][y] = { oneTime: 0, recurring: 0, total: 0 };
+        });
+      });
+
+      state.legacy_2024[2024].oneTime = h.cc_one_time_recurring["2024"].one_time / 1_000_000;
+      state.legacy_2024[2024].recurring = h.cc_one_time_recurring["2024"].recurring / 1_000_000;
+      state.legacy_2024[2024].total = state.legacy_2024[2024].oneTime + state.legacy_2024[2024].recurring;
+
+      state.legacy_2024[2025].oneTime = h.cohort_anchor_2025.legacy_one_time / 1_000_000;
+      state.legacy_2024[2025].recurring = h.cohort_anchor_2025.legacy_recurring / 1_000_000;
+      state.legacy_2024[2025].total = state.legacy_2024[2025].oneTime + state.legacy_2024[2025].recurring;
+
+      const new2025RawTotal = h.cohort_anchor_2025.new_2025_contribution / 1_000_000;
+      const new2025RecShare = new2025RawTotal > 0 ? (h.cohort_anchor_2025.new_recurring / 1_000_000) / new2025RawTotal : newRecurringShare;
+      const new2025TargetTotal = Math.max(0, targets[2025] - state.legacy_2024[2025].total);
+      state.cohort_2025[2025].recurring = new2025TargetTotal * new2025RecShare;
+      state.cohort_2025[2025].oneTime = new2025TargetTotal * (1 - new2025RecShare);
+      state.cohort_2025[2025].total = new2025TargetTotal;
+
+      const perYear = {
+        2024: { target: targets[2024], modeled: targets[2024], newCohort: 0, existing: targets[2024] },
+        2025: { target: targets[2025], modeled: targets[2025], newCohort: new2025TargetTotal, existing: state.legacy_2024[2025].total },
+        2026: { target: targets[2026], modeled: 0, newCohort: 0, existing: 0 },
+        2027: { target: targets[2027], modeled: 0, newCohort: 0, existing: 0 },
+        2028: { target: targets[2028], modeled: 0, newCohort: 0, existing: 0 }
+      };
+
+      for (let y = 2026; y <= 2028; y++) {
+        let existingTotal = 0;
+
+        cohorts.forEach((c) => {
+          if (c.startYear >= y) return;
+          const prev = state[c.id][y - 1];
+          if (!prev.total) return;
+          const firstTransition = (y - 1) === c.startYear;
+          const rampMult = firstTransition ? ramp : 1;
+          const oneCarry = prev.oneTime * oneTimeRepeat * rampMult;
+          const recCarry = prev.recurring * recurringCarry * rampMult;
+          const expansion = prev.total * existingExpansion * rampMult;
+          const oneTime = oneCarry + (expansion * (1 - newRecurringShare));
+          const recurring = recCarry + (expansion * newRecurringShare);
+          state[c.id][y] = { oneTime, recurring, total: oneTime + recurring };
+          existingTotal += oneTime + recurring;
+        });
+
+        const newCohortTotal = Math.max(0, targets[y] - existingTotal);
+        const cohortId = `cohort_${y}`;
+        state[cohortId][y] = {
+          oneTime: newCohortTotal * (1 - newRecurringShare),
+          recurring: newCohortTotal * newRecurringShare,
+          total: newCohortTotal
+        };
+
+        perYear[y] = {
+          target: targets[y],
+          modeled: existingTotal + newCohortTotal,
+          newCohort: newCohortTotal,
+          existing: existingTotal,
+          gap: existingTotal + newCohortTotal - targets[y]
+        };
+      }
+
+      const bracketDist = data.segmentation.cc_2025_new_accounts_distribution;
+      const rawShares = {};
+      bracketShareInputs.forEach((input) => {
+        const id = input.getAttribute("data-bracket-id");
+        rawShares[id] = Math.max(0, Number(input.value) || 0);
+      });
+      const shareSum = Object.values(rawShares).reduce((a, b) => a + b, 0);
+      const normalizedShares = {};
+      bracketDist.forEach((b) => {
+        normalizedShares[b.id] = shareSum > 0 ? rawShares[b.id] / shareSum : 0;
+      });
+
+      const acq = [];
+      [2026, 2027, 2028].forEach((y) => {
+        const newCohort = perYear[y].newCohort;
+        bracketDist.forEach((b) => {
+          const share = normalizedShares[b.id] || 0;
+          const requiredGpv = newCohort * share;
+          const perLogo = (controls.logoMetric.value === "avg" ? b.avg_year1_gpv : b.median_year1_gpv) / 1_000_000;
+          const logos = perLogo > 0 ? requiredGpv / perLogo : 0;
+          acq.push({ year: y, bracket: b.label, bracketId: b.id, requiredGpv, perLogo, logos });
+        });
+      });
+
+      return {
+        targets,
+        takeRate,
+        ltMonths,
+        recurringCarry,
+        oneTimeRepeat,
+        existingExpansion,
+        newRecurringShare,
+        maxWhales,
+        cohorts,
+        years,
+        state,
+        perYear,
+        acq,
+        shareSum,
+        observedNrr,
+        observedY1Y2Ratio,
+        modelY1Y2Ratio
+      };
+    }
+
+    function renderTopline(m) {
+      const t = byId("toplineTable");
+      let html = "<thead><tr><th>Metric</th><th>2024</th><th>2025</th><th>2026</th><th>2027</th><th>2028</th></tr></thead><tbody>";
+      html += `<tr><td>C&C Target GPV</td>${m.years.map((y) => `<td>${fmtM(m.perYear[y].target)}</td>`).join("")}</tr>`;
+      html += `<tr><td>Modeled Existing Cohorts</td>${m.years.map((y) => `<td>${fmtM(m.perYear[y].existing || 0)}</td>`).join("")}</tr>`;
+      html += `<tr><td>New Cohort (Observed 2025, Required 2026+)</td>${m.years.map((y) => `<td>${fmtM(m.perYear[y].newCohort || 0)}</td>`).join("")}</tr>`;
+      html += `<tr><td>Modeled Total GPV (Backsolved)</td>${m.years.map((y) => `<td>${fmtM(m.perYear[y].modeled || 0)}</td>`).join("")}</tr>`;
+      html += `<tr><td>Variance (Modeled - Target)</td>${m.years.map((y) => `<td>${fmtM((m.perYear[y].modeled || 0) - (m.perYear[y].target || 0))}</td>`).join("")}</tr>`;
+      html += `<tr><td>Implied ARR (@take rate)</td>${m.years.map((y) => `<td>${fmtM((m.perYear[y].modeled || 0) * m.takeRate)}</td>`).join("")}</tr>`;
+      html += "</tbody>";
+      t.innerHTML = html;
+    }
+
+    function renderCohorts(m) {
+      const t = byId("cohortTable");
+      let html = "<thead><tr><th>Cohort</th><th>2024</th><th>2025</th><th>2026</th><th>2027</th><th>2028</th></tr></thead><tbody>";
+      m.cohorts.forEach((c) => {
+        html += `<tr><td>${c.label}</td>${m.years.map((y) => {
+          if (y < c.startYear) {
+            return "<td class=\"blank\">-</td>";
+          }
+          return `<td>${fmtM(m.state[c.id][y].total || 0)}</td>`;
+        }).join("")}</tr>`;
+      });
+      html += `<tr><td><strong>Total</strong></td>${m.years.map((y) => `<td><strong>${fmtM(m.perYear[y].modeled || 0)}</strong></td>`).join("")}</tr>`;
+      html += "</tbody>";
+      t.innerHTML = html;
+    }
+
+    function renderAcq(m) {
+      const t = byId("acqTable");
+      let html = "<thead><tr><th>Year</th><th>Bracket</th><th>Required New Cohort GPV ($M)</th><th>Assumed Year-1 GPV / Logo ($M)</th><th>Required Logos</th><th>Whale Check</th></tr></thead><tbody>";
+      m.acq.forEach((r) => {
+        const whaleCell = r.bracketId === "10m_plus"
+          ? (r.logos > m.maxWhales ? `<span class=\"bad\">Exceeds (${fmt(r.logos)} > ${m.maxWhales})</span>` : `<span>OK (${fmt(r.logos)})</span>`)
+          : "-";
+        html += `<tr><td>${r.year}</td><td>${r.bracket}</td><td>${fmt(r.requiredGpv)}</td><td>${fmt(r.perLogo)}</td><td>${fmt(r.logos)}</td><td>${whaleCell}</td></tr>`;
+      });
+      html += "</tbody>";
+      t.innerHTML = html;
+    }
+
+    function renderMeta(m) {
+      const c = data.segmentation.coverage_2024_known_accounts;
+      byId("sourceLine").textContent = `Generated: ${data.metadata.generated_at} | Sources: 2024+2025 volume reports, faith report, FRU sectors | Entered mix sum: ${fmt(m.shareSum)}%`;
+      byId("coverageLine").innerHTML = `2024 known-account enrichment: <span class=\"pill\">NTEE ${c.ntee_coverage_pct}%</span><span class=\"pill\">FRU Sector ${c.fru_sector_coverage_pct}%</span><span class=\"pill\">FRU Subsector ${c.fru_subsector_coverage_pct}%</span>`;
+
+      byId("assumptionLt").textContent = String(m.ltMonths);
+      byId("assumptionCarry").textContent = pct(m.recurringCarry);
+      byId("assumptionSplit").textContent = `${Math.round((1 - m.newRecurringShare) * 100)}/${Math.round(m.newRecurringShare * 100)}`;
+      byId("assumptionOt").textContent = pct(m.oneTimeRepeat);
+      byId("assumptionExp").textContent = pct(m.existingExpansion);
+      byId("observedNrr").textContent = pct(m.observedNrr);
+      byId("observedY1Y2").textContent = pct(m.observedY1Y2Ratio);
+      byId("modelY1Y2").textContent = pct(m.modelY1Y2Ratio);
+      byId("assumptionWhales").textContent = String(m.maxWhales);
+    }
+
+    function render() {
+      const m = computeModel();
+      renderTopline(m);
+      renderCohorts(m);
+      renderAcq(m);
+      renderMeta(m);
+    }
+
+    initControls();
+    render();
+  </script>
+</body>
+</html>
