@@ -169,6 +169,7 @@
         "existing_account_expansion_rate",
         "cohort_year2_nrr",
         "new_account_year1_to_year2_gpv_ratio",
+        "lt_100k_year1_gpv_per_logo_override_m",
         "max_new_whales_per_year",
         "bracket_mix_shift_2026_2028"
       ],
@@ -188,6 +189,7 @@
         "existing_account_expansion_rate": { "type": "number", "minimum": 0 },
         "cohort_year2_nrr": { "type": "number", "minimum": 0.01 },
         "new_account_year1_to_year2_gpv_ratio": { "type": "number", "minimum": 0.01, "maximum": 1 },
+        "lt_100k_year1_gpv_per_logo_override_m": { "type": "number", "minimum": 0 },
         "max_new_whales_per_year": { "type": "integer", "minimum": 0 },
         "bracket_mix_shift_2026_2028": { "type": "string" }
       },
