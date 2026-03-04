@@ -1,0 +1,23 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.python-version
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors/IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and local env files
+*.log
+.env
+.env.*
