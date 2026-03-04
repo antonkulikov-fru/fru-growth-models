@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fundraiseup.local/schemas/cause-cure-growth-model.schema.json",
+  "title": "Cause&Cure Growth Model",
+  "description": "Schema for Cause&Cure GPV growth model inputs, anchors, assumptions and derived targets.",
+  "type": "object",
+  "required": [
+    "metadata",
+    "targets",
+    "historical",
+    "segmentation",
+    "assumptions"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["title", "currency", "unit", "generated_at", "source_files"],
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "currency": { "type": "string", "const": "USD" },
+        "unit": { "type": "string", "enum": ["M"] },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "source_files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "targets": {
+      "type": "object",
+      "required": ["cc_gpv_m", "take_rate"],
+      "properties": {
+        "cc_gpv_m": {
+          "type": "object",
+          "required": ["2024", "2025", "2026", "2027", "2028"],
+          "properties": {
+            "2024": { "type": "number", "minimum": 0 },
+            "2025": { "type": "number", "minimum": 0 },
+            "2026": { "type": "number", "minimum": 0 },
+            "2027": { "type": "number", "minimum": 0 },
+            "2028": { "type": "number", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "take_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "historical": {
+      "type": "object",
+      "required": ["all_gpv", "faith_gpv", "cc_gpv", "cohort_anchor_2025", "cc_one_time_recurring"],
+      "properties": {
+        "all_gpv": { "$ref": "#/$defs/yearPair" },
+        "faith_gpv": { "$ref": "#/$defs/yearPair" },
+        "cc_gpv": { "$ref": "#/$defs/yearPair" },
+        "cohort_anchor_2025": {
+          "type": "object",
+          "required": [
+            "legacy_contribution",
+            "new_2025_contribution",
+            "legacy_one_time",
+            "legacy_recurring",
+            "new_one_time",
+            "new_recurring"
+          ],
+          "properties": {
+            "legacy_contribution": { "type": "number", "minimum": 0 },
+            "new_2025_contribution": { "type": "number", "minimum": 0 },
+            "legacy_one_time": { "type": "number", "minimum": 0 },
+            "legacy_recurring": { "type": "number", "minimum": 0 },
+            "new_one_time": { "type": "number", "minimum": 0 },
+            "new_recurring": { "type": "number", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "cc_one_time_recurring": {
+          "type": "object",
+          "required": ["2024", "2025"],
+          "properties": {
+            "2024": { "$ref": "#/$defs/otRec" },
+            "2025": { "$ref": "#/$defs/otRec" }
+          },
+          "additionalProperties": false
+        },
+        "legacy_observed_kpis": {
+          "type": "object",
+          "required": [
+            "nrr_2024_to_2025",
+            "carryover_component_ratio",
+            "implied_existing_account_expansion_rate"
+          ],
+          "properties": {
+            "nrr_2024_to_2025": { "type": "number", "minimum": 0 },
+            "carryover_component_ratio": { "type": "number", "minimum": 0 },
+            "implied_existing_account_expansion_rate": { "type": "number", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "segmentation": {
+      "type": "object",
+      "required": [
+        "taxonomy",
+        "coverage_2024_known_accounts",
+        "analytical_brackets",
+        "cc_2025_distribution",
+        "cc_2025_new_accounts_distribution"
+      ],
+      "properties": {
+        "taxonomy": {
+          "type": "object",
+          "required": ["primary", "secondary"],
+          "properties": {
+            "primary": { "type": "string" },
+            "secondary": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "coverage_2024_known_accounts": {
+          "type": "object",
+          "required": [
+            "total_2024_accounts",
+            "covered_total",
+            "coverage_pct",
+            "ntee_coverage_pct",
+            "fru_sector_coverage_pct",
+            "fru_subsector_coverage_pct"
+          ],
+          "properties": {
+            "total_2024_accounts": { "type": "integer", "minimum": 0 },
+            "covered_total": { "type": "integer", "minimum": 0 },
+            "coverage_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+            "ntee_coverage_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+            "fru_sector_coverage_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+            "fru_subsector_coverage_pct": { "type": "number", "minimum": 0, "maximum": 100 }
+          },
+          "additionalProperties": true
+        },
+        "analytical_brackets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/bracket" },
+          "minItems": 1
+        },
+        "cc_2025_distribution": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/bracketDistribution" },
+          "minItems": 1
+        },
+        "cc_2025_new_accounts_distribution": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/bracketNewDistribution" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "assumptions": {
+      "type": "object",
+      "required": [
+        "recurring_donor_lifetime_months",
+        "annual_recurring_carryover",
+        "new_donor_year1_split",
+        "one_time_donor_year2_repeat_rate",
+        "existing_account_expansion_rate",
+        "cohort_year2_nrr",
+        "new_account_year1_to_year2_gpv_ratio",
+        "max_new_whales_per_year",
+        "bracket_mix_shift_2026_2028"
+      ],
+      "properties": {
+        "recurring_donor_lifetime_months": { "type": "number", "minimum": 1 },
+        "annual_recurring_carryover": { "type": "number", "minimum": 0, "maximum": 1 },
+        "new_donor_year1_split": {
+          "type": "object",
+          "required": ["one_time", "recurring"],
+          "properties": {
+            "one_time": { "type": "number", "minimum": 0, "maximum": 1 },
+            "recurring": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "one_time_donor_year2_repeat_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "existing_account_expansion_rate": { "type": "number", "minimum": 0 },
+        "cohort_year2_nrr": { "type": "number", "minimum": 0.01 },
+        "new_account_year1_to_year2_gpv_ratio": { "type": "number", "minimum": 0.01, "maximum": 1 },
+        "max_new_whales_per_year": { "type": "integer", "minimum": 0 },
+        "bracket_mix_shift_2026_2028": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "yearPair": {
+      "type": "object",
+      "required": ["2024", "2025"],
+      "properties": {
+        "2024": { "type": "number", "minimum": 0 },
+        "2025": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "otRec": {
+      "type": "object",
+      "required": ["one_time", "recurring", "recurring_share"],
+      "properties": {
+        "one_time": { "type": "number", "minimum": 0 },
+        "recurring": { "type": "number", "minimum": 0 },
+        "recurring_share": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "bracket": {
+      "type": "object",
+      "required": ["id", "label", "min"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "min": { "type": "number", "minimum": 0 },
+        "max": { "type": ["number", "null"], "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "bracketDistribution": {
+      "type": "object",
+      "required": ["id", "label", "account_count", "gpv_total", "share_of_accounts", "share_of_gpv"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "account_count": { "type": "integer", "minimum": 0 },
+        "gpv_total": { "type": "number", "minimum": 0 },
+        "share_of_accounts": { "type": "number", "minimum": 0, "maximum": 100 },
+        "share_of_gpv": { "type": "number", "minimum": 0, "maximum": 100 }
+      },
+      "additionalProperties": false
+    },
+    "bracketNewDistribution": {
+      "allOf": [
+        { "$ref": "#/$defs/bracketDistribution" },
+        {
+          "type": "object",
+          "required": ["avg_year1_gpv", "median_year1_gpv"],
+          "properties": {
+            "avg_year1_gpv": { "type": "number", "minimum": 0 },
+            "median_year1_gpv": { "type": "number", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,255 @@
+window.GROWTH_MODEL_DATA = {
+  "metadata": {
+    "title": "Cause&Cure Growth Model",
+    "description": "C&C model built as Total FRU GPV minus Faith-based GPV.",
+    "currency": "USD",
+    "unit": "M",
+    "generated_at": "2026-03-04T14:54:36+00:00",
+    "source_files": [
+      "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/2024_all_accounts_donations.csv",
+      "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/2025_all_orgs_dontations__fru_enriched.csv",
+      "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/All Accounts Volume by Source & Frequency (2025).csv",
+      "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/religious_accounts_donation_volume_report.csv",
+      "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/FUNDRAISEUP sectors.csv"
+    ]
+  },
+  "targets": {
+    "cc_gpv_m": {
+      "2024": 894.84,
+      "2025": 1386.05,
+      "2026": 2300.0,
+      "2027": 3900.0,
+      "2028": 6840.0
+    },
+    "take_rate": 0.03
+  },
+  "historical": {
+    "all_gpv": {
+      "2024": 1130397714.0,
+      "2025": 1718195933.0
+    },
+    "faith_gpv": {
+      "2024": 235556682.0,
+      "2025": 332144844.0
+    },
+    "cc_gpv": {
+      "2024": 894841032.0,
+      "2025": 1386051089.0
+    },
+    "cohort_anchor_2025": {
+      "legacy_contribution": 1209897213.0,
+      "new_2025_contribution": 176115083.0,
+      "legacy_one_time": 849470403.0,
+      "legacy_recurring": 360426859.0,
+      "new_one_time": 158508881.0,
+      "new_recurring": 17606221.0
+    },
+    "cc_one_time_recurring": {
+      "2024": {
+        "one_time": 659718132.0,
+        "recurring": 235123001.0,
+        "recurring_share": 0.26
+      },
+      "2025": {
+        "one_time": 1007979284.0,
+        "recurring": 378033080.0,
+        "recurring_share": 0.27
+      }
+    },
+    "legacy_observed_kpis": {
+      "nrr_2024_to_2025": 1.35,
+      "carryover_component_ratio": 0.42,
+      "implied_existing_account_expansion_rate": 0.94
+    }
+  },
+  "segmentation": {
+    "taxonomy": {
+      "primary": "FRU Sector/Subsector",
+      "secondary": "NTEE"
+    },
+    "coverage_2024_known_accounts": {
+      "total_2024_accounts": 3799,
+      "covered_by_2025_id": 2209,
+      "covered_by_sector_domain": 0,
+      "covered_by_sector_name": 65,
+      "unclassified": 1525,
+      "with_ntee_code": 1997,
+      "with_fru_sector": 2019,
+      "with_fru_subsector": 2019,
+      "covered_total": 2274,
+      "coverage_pct": 59.86,
+      "ntee_coverage_pct": 52.57,
+      "fru_sector_coverage_pct": 53.15,
+      "fru_subsector_coverage_pct": 53.15
+    },
+    "analytical_brackets": [
+      {
+        "id": "lt_100k",
+        "label": "<0.1M",
+        "min": 0,
+        "max": 100000
+      },
+      {
+        "id": "100k_500k",
+        "label": "0.1-0.5M",
+        "min": 100000,
+        "max": 500000
+      },
+      {
+        "id": "500k_1m",
+        "label": "0.5-1M",
+        "min": 500000,
+        "max": 1000000
+      },
+      {
+        "id": "1m_5m",
+        "label": "1-5M",
+        "min": 1000000,
+        "max": 5000000
+      },
+      {
+        "id": "5m_10m",
+        "label": "5-10M",
+        "min": 5000000,
+        "max": 10000000
+      },
+      {
+        "id": "10m_plus",
+        "label": "10M+",
+        "min": 10000000,
+        "max": null
+      }
+    ],
+    "cc_2025_distribution": [
+      {
+        "id": "lt_100k",
+        "label": "<0.1M",
+        "account_count": 3436,
+        "gpv_total": 62854891.0,
+        "share_of_accounts": 73.97,
+        "share_of_gpv": 4.53
+      },
+      {
+        "id": "100k_500k",
+        "label": "0.1-0.5M",
+        "account_count": 785,
+        "gpv_total": 182291123.0,
+        "share_of_accounts": 16.9,
+        "share_of_gpv": 13.15
+      },
+      {
+        "id": "500k_1m",
+        "label": "0.5-1M",
+        "account_count": 190,
+        "gpv_total": 136685163.0,
+        "share_of_accounts": 4.09,
+        "share_of_gpv": 9.86
+      },
+      {
+        "id": "1m_5m",
+        "label": "1-5M",
+        "account_count": 183,
+        "gpv_total": 369262867.0,
+        "share_of_accounts": 3.94,
+        "share_of_gpv": 26.64
+      },
+      {
+        "id": "5m_10m",
+        "label": "5-10M",
+        "account_count": 31,
+        "gpv_total": 217421151.0,
+        "share_of_accounts": 0.67,
+        "share_of_gpv": 15.69
+      },
+      {
+        "id": "10m_plus",
+        "label": "10M+",
+        "account_count": 20,
+        "gpv_total": 417497101.0,
+        "share_of_accounts": 0.43,
+        "share_of_gpv": 30.12
+      }
+    ],
+    "cc_2025_new_accounts_distribution": [
+      {
+        "id": "lt_100k",
+        "label": "<0.1M",
+        "account_count": 1087,
+        "gpv_total": 14681061.0,
+        "share_of_accounts": 82.04,
+        "share_of_gpv": 8.34,
+        "avg_year1_gpv": 13506.04,
+        "median_year1_gpv": 3404.0
+      },
+      {
+        "id": "100k_500k",
+        "label": "0.1-0.5M",
+        "account_count": 168,
+        "gpv_total": 37000653.0,
+        "share_of_accounts": 12.68,
+        "share_of_gpv": 21.01,
+        "avg_year1_gpv": 220241.98,
+        "median_year1_gpv": 190521.0
+      },
+      {
+        "id": "500k_1m",
+        "label": "0.5-1M",
+        "account_count": 35,
+        "gpv_total": 24660138.0,
+        "share_of_accounts": 2.64,
+        "share_of_gpv": 14.0,
+        "avg_year1_gpv": 704575.37,
+        "median_year1_gpv": 686347.0
+      },
+      {
+        "id": "1m_5m",
+        "label": "1-5M",
+        "account_count": 30,
+        "gpv_total": 64465845.0,
+        "share_of_accounts": 2.26,
+        "share_of_gpv": 36.6,
+        "avg_year1_gpv": 2148861.5,
+        "median_year1_gpv": 1760324.5
+      },
+      {
+        "id": "5m_10m",
+        "label": "5-10M",
+        "account_count": 5,
+        "gpv_total": 35307386.0,
+        "share_of_accounts": 0.38,
+        "share_of_gpv": 20.05,
+        "avg_year1_gpv": 7061477.2,
+        "median_year1_gpv": 7044436.0
+      },
+      {
+        "id": "10m_plus",
+        "label": "10M+",
+        "account_count": 0,
+        "gpv_total": 0,
+        "share_of_accounts": 0.0,
+        "share_of_gpv": 0.0,
+        "avg_year1_gpv": 0.0,
+        "median_year1_gpv": 0.0
+      }
+    ]
+  },
+  "assumptions": {
+    "recurring_donor_lifetime_months": 16,
+    "annual_recurring_carryover": 0.46,
+    "new_donor_year1_split": {
+      "one_time": 0.7,
+      "recurring": 0.3
+    },
+    "one_time_donor_year2_repeat_rate": 0.4,
+    "existing_account_expansion_rate": 0.94,
+    "cohort_year2_nrr": 1.35,
+    "new_account_year1_to_year2_gpv_ratio": 0.74,
+    "max_new_whales_per_year": 2,
+    "bracket_mix_shift_2026_2028": "none"
+  },
+  "notes": [
+    "2024 is treated as Legacy cohort because pre-2024 data is unavailable.",
+    "Detailed phase-2 modeling will be by FRU Sector/Subsector.",
+    "NTEE is retained for validation and reconciliation."
+  ]
+};
