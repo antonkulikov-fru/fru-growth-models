@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cause&Cure Growth Model</title>
+  <title>Growth Model</title>
   <style>
     :root {
       --bg: #f4f6f8;
@@ -41,11 +41,73 @@
       color: var(--muted);
       font-size: 14px;
     }
+    .switch-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .switch-label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .switch {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 10px;
+      background: #e2e8f0;
+      border: 1px solid var(--line);
+    }
+    .switch button {
+      border: 1px solid transparent;
+      background: transparent;
+      color: #0f172a;
+      padding: 6px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .switch button.active {
+      background: #ffffff;
+      border-color: #94a3b8;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+    @media (max-width: 760px) {
+      .switch-wrap {
+        align-items: flex-start;
+      }
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 8px;
       margin-bottom: 14px;
+    }
+    .control-groups {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .control-group {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .control-group-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 8px;
+      letter-spacing: 0.1px;
+    }
+    .control-group-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
     }
     .field {
       background: var(--card);
@@ -66,6 +128,17 @@
       padding: 6px 8px;
       font-size: 14px;
       box-sizing: border-box;
+    }
+    .acq-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .acq-controls .field {
+      width: 220px;
+      max-width: 220px;
+      margin-bottom: 0;
     }
     .card {
       background: var(--card);
@@ -185,28 +258,45 @@
   <div class="page">
     <div class="header">
       <div>
-        <div class="title">Cause&Cure Growth Model (2024-2028)</div>
+        <div class="title" id="modelTitle">Growth Model (2024-2028)</div>
         <div class="sub" id="sourceLine"></div>
       </div>
-      <div class="sub" id="coverageLine"></div>
+      <div class="switch-wrap">
+        <div class="switch-label">Vertical</div>
+        <div class="switch" id="verticalSwitch"></div>
+      </div>
     </div>
 
-    <div class="grid">
-      <div class="field"><label>Target 2026 GPV ($M)</label><input id="t2026" type="number" step="1" /></div>
-      <div class="field"><label>Target 2027 GPV ($M)</label><input id="t2027" type="number" step="1" /></div>
-      <div class="field"><label>Target 2028 GPV ($M)</label><input id="t2028" type="number" step="1" /></div>
-      <div class="field"><label>Take Rate (ARR)</label><input id="takeRate" type="number" step="0.001" min="0" max="1" /></div>
-      <div class="field"><label>Recurring LT (months)</label><input id="ltMonths" type="number" step="1" min="1" /></div>
-      <div class="field"><label>One-time Year2 Repeat Rate</label><input id="otRepeat" type="number" step="0.01" min="0" max="1" /></div>
-      <div class="field"><label>Existing-Account Expansion Rate</label><input id="existingExpansion" type="number" step="0.01" min="0" /></div>
-      <div class="field"><label>New Donor Recurring Share</label><input id="newRecShare" type="number" step="0.01" min="0" max="1" /></div>
-      <div class="field"><label>Max New 10M+ Logos / Year</label><input id="maxWhales" type="number" step="1" min="0" /></div>
-      <div class="field">
-        <label>GPV per New Logo Metric</label>
-        <select id="logoMetric">
-          <option value="median">Median (recommended)</option>
-          <option value="avg">Average</option>
-        </select>
+    <div class="control-groups">
+      <div class="control-group">
+        <div class="control-group-title">Targets</div>
+        <div class="control-group-grid">
+          <div class="field"><label>Target 2026 GPV ($M)</label><input id="t2026" type="number" step="1" /></div>
+          <div class="field"><label>Target 2027 GPV ($M)</label><input id="t2027" type="number" step="1" /></div>
+          <div class="field"><label>Target 2028 GPV ($M)</label><input id="t2028" type="number" step="1" /></div>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="control-group-title">Donors behaviour assumptions</div>
+        <div class="control-group-grid">
+          <div class="field"><label>Recurring LT (months)</label><input id="ltMonths" type="number" step="1" min="1" /></div>
+          <div class="field"><label>One-time Year2 Repeat Rate</label><input id="otRepeat" type="number" step="0.01" min="0" max="1" /></div>
+          <div class="field"><label>Existing-Account Expansion Rate</label><input id="existingExpansion" type="number" step="0.01" min="0" /></div>
+          <div class="field"><label>New Donor Recurring Share</label><input id="newRecShare" type="number" step="0.01" min="0" max="1" /></div>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="control-group-title">Model settings</div>
+        <div class="control-group-grid">
+          <div class="field"><label>Take Rate (ARR)</label><input id="takeRate" type="number" step="0.001" min="0" max="1" /></div>
+          <div class="field">
+            <label>GPV per New Logo Metric</label>
+            <select id="logoMetric">
+              <option value="median">Median (recommended)</option>
+              <option value="avg">Average</option>
+            </select>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -217,7 +307,7 @@
       <div id="assumptionsBlock">
         <strong>Assumptions</strong>
         <ul>
-          <li>Cause&amp;Cure GPV = Total FRU GPV - Faith-based GPV.</li>
+          <li id="assumptionVerticalDef"></li>
           <li>2024 and 2025 historical base is computed from raw reports with the same formula.</li>
           <li>2024 is modeled as Legacy cohort because pre-2024 data is unavailable.</li>
           <li>Detailed segmentation uses FRU Sector/Subsector (primary) and NTEE (secondary for reconciliation).</li>
@@ -227,26 +317,33 @@
           <li>One-time donor year-2 repeat rate = <span id="assumptionOt"></span>.</li>
           <li>Existing-account expansion rate (new donor inflow inside existing logos) = <span id="assumptionExp"></span>.</li>
           <li>Observed KPI: 2024 legacy cohort NRR in 2025 = <span id="observedNrr"></span> (equivalent year-1/year-2 ratio: <span id="observedY1Y2"></span>).</li>
-          <li>For &lt;0.1M bracket, Year-1 GPV / Logo is fixed at <span id="assumptionLt100kPerLogo"></span>.</li>
+          <li>For &lt;0.1M bracket, Year-1 GPV / Logo is fixed at <span id="assumptionLt100kPerLogo"></span> per account.</li>
           <li>Default is no structural bracket-mix shift in 2026-2028 (2025 new-logo mix baseline), with manual share overrides for planning.</li>
-          <li>Constraint: at least 1 and at most <span id="assumptionWhales"></span> new 10M+ logos per year.</li>
+          <li>Constraint: at most <span id="assumptionWhales"></span> new 10M+ logos per year.</li>
         </ul>
       </div>
     </div>
 
     <div class="card">
-      <div class="field" style="max-width:220px; margin-bottom:8px;">
-        <label>Acquisition Plan Year</label>
-        <select id="acqYear">
-          <option value="legacy2024">Legacy (2024)</option>
-          <option value="2025">2025</option>
-          <option value="2026">2026</option>
-          <option value="2027">2027</option>
-          <option value="2028">2028</option>
-        </select>
+      <div class="acq-controls">
+        <div class="field">
+          <label>Acquisition Plan Year</label>
+          <select id="acqYear">
+            <option value="legacy2024">Legacy (2024)</option>
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+            <option value="2028">2028</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Max New 10M+ Logos / Year</label>
+          <input id="maxWhales" type="number" step="1" min="0" />
+        </div>
       </div>
       <table id="acqTable"></table>
-      <div class="note">For selected year, table shows historical bracket data (Legacy 2024 / 2025) or planned required acquisition counts (2026+).</div>
+      <div id="acqWarning" class="note bad" style="display:none;"></div>
+      <div class="note">For selected year, table shows historical bracket data (Legacy 2024 / 2025) or planned required acquisition counts (2026+). If 10M+ exceeds the yearly whale cap, excess GPV is redistributed across other brackets.</div>
     </div>
   </div>
 
@@ -284,26 +381,98 @@
       acqYear: byId("acqYear")
     };
 
+    const verticalOptions = [
+      { id: "all", label: "All" },
+      { id: "cc", label: "C&C" },
+      { id: "faith", label: "Faith" }
+    ];
+
+    const verticalDefinitionById = {
+      all: "All GPV = Total FRU GPV.",
+      cc: "C&C GPV = Total FRU GPV - Faith-based GPV.",
+      faith: "Faith GPV = Faith-based GPV."
+    };
+
+    let activeVertical = "cc";
     let mixSharesById = {};
     let legacyBaselineById = {};
+    let defaultWeightsById = {};
+    let hasManualMixOverride = false;
 
-    function initControls() {
-      controls.t2026.value = data.targets.cc_gpv_m["2026"];
-      controls.t2027.value = data.targets.cc_gpv_m["2027"];
-      controls.t2028.value = data.targets.cc_gpv_m["2028"];
-      controls.takeRate.value = data.targets.take_rate;
-      controls.ltMonths.value = data.assumptions.recurring_donor_lifetime_months;
-      controls.otRepeat.value = data.assumptions.one_time_donor_year2_repeat_rate;
-      controls.existingExpansion.value = data.assumptions.existing_account_expansion_rate ?? 0.93;
-      controls.newRecShare.value = data.assumptions.new_donor_year1_split.recurring;
-      controls.maxWhales.value = data.assumptions.max_new_whales_per_year;
-      controls.logoMetric.value = "median";
-      controls.acqYear.value = "2026";
+    function getFallbackTargetsGpvM(verticalId) {
+      const ccTargets = data.targets.cc_gpv_m || {};
+      const cc2025 = Number(ccTargets["2025"] || 0);
+      const scale2026 = cc2025 > 0 ? Number(ccTargets["2026"] || 0) / cc2025 : 1;
+      const scale2027 = cc2025 > 0 ? Number(ccTargets["2027"] || 0) / cc2025 : 1;
+      const scale2028 = cc2025 > 0 ? Number(ccTargets["2028"] || 0) / cc2025 : 1;
+      if (verticalId === "cc") return ccTargets;
 
-      const dist = data.segmentation.cc_2025_new_accounts_distribution;
-      const allDist = data.segmentation.cc_2025_distribution || [];
+      const hist = data.historical || {};
+      const gpv = verticalId === "faith" ? (hist.faith_gpv || {}) : (hist.all_gpv || {});
+      const y2025 = Number(gpv["2025"] || 0) / 1_000_000;
+      return {
+        "2024": Number(gpv["2024"] || 0) / 1_000_000,
+        "2025": y2025,
+        "2026": y2025 * scale2026,
+        "2027": y2025 * scale2027,
+        "2028": y2025 * scale2028
+      };
+    }
+
+    function getVerticalData(verticalId) {
+      const v = (data.verticals || {})[verticalId];
+      if (v) {
+        return {
+          id: verticalId,
+          label: v.label || verticalId,
+          targetsGpvM: v.targets_gpv_m || {},
+          cohortAnchor2025: ((v.historical || {}).cohort_anchor_2025) || {},
+          oneTimeRecurring: ((v.historical || {}).one_time_recurring) || {},
+          legacyObservedKpis: ((v.historical || {}).legacy_observed_kpis) || {},
+          distribution2025: ((v.segmentation || {}).distribution_2025) || [],
+          newAccountsDistribution2025: ((v.segmentation || {}).new_accounts_distribution_2025) || []
+        };
+      }
+
+      const hist = data.historical || {};
+      if (verticalId === "cc") {
+        return {
+          id: "cc",
+          label: "C&C",
+          targetsGpvM: data.targets.cc_gpv_m || {},
+          cohortAnchor2025: hist.cohort_anchor_2025 || {},
+          oneTimeRecurring: hist.cc_one_time_recurring || {},
+          legacyObservedKpis: hist.legacy_observed_kpis || {},
+          distribution2025: (data.segmentation || {}).cc_2025_distribution || [],
+          newAccountsDistribution2025: (data.segmentation || {}).cc_2025_new_accounts_distribution || []
+        };
+      }
+
+      return {
+        id: verticalId,
+        label: verticalId === "all" ? "All" : "Faith",
+        targetsGpvM: getFallbackTargetsGpvM(verticalId),
+        cohortAnchor2025: {},
+        oneTimeRecurring: {},
+        legacyObservedKpis: {},
+        distribution2025: [],
+        newAccountsDistribution2025: []
+      };
+    }
+
+    function updateMixBaselines(vertical) {
+      defaultWeightsById = {};
+      legacyBaselineById = {};
+      const dist = vertical.newAccountsDistribution2025 || [];
+      const allDist = vertical.distribution2025 || [];
       const newDistById = {};
       dist.forEach((b) => { newDistById[b.id] = b; });
+
+      let newTotalGpv = 0;
+      dist.forEach((b) => { newTotalGpv += Number(b.gpv_total || 0); });
+      dist.forEach((b) => {
+        defaultWeightsById[b.id] = newTotalGpv > 0 ? Number(b.gpv_total || 0) / newTotalGpv : (1 / Math.max(1, dist.length));
+      });
 
       let legacyTotalGpv = 0;
       const legacyShareById = {};
@@ -320,17 +489,66 @@
       dist.forEach((b) => {
         const baselinePct = (legacyShareById[b.id] || {}).sharePct ?? Number(b.share_of_gpv || 0);
         legacyBaselineById[b.id] = baselinePct;
-        if (!(b.id in mixSharesById)) {
-          mixSharesById[b.id] = baselinePct;
-        }
       });
-      Object.values(controls).forEach((el) => el.addEventListener("input", render));
+    }
+
+    function updateVerticalSwitchUi() {
+      Array.from(byId("verticalSwitch").querySelectorAll("button")).forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-vertical") === activeVertical);
+      });
+    }
+
+    function setActiveVertical(nextVerticalId) {
+      activeVertical = nextVerticalId;
+      const vertical = getVerticalData(activeVertical);
+      controls.t2026.value = Number(vertical.targetsGpvM["2026"] || 0);
+      controls.t2027.value = Number(vertical.targetsGpvM["2027"] || 0);
+      controls.t2028.value = Number(vertical.targetsGpvM["2028"] || 0);
+      controls.existingExpansion.value = Number(vertical.legacyObservedKpis.implied_existing_account_expansion_rate ?? data.assumptions.existing_account_expansion_rate ?? 0.93);
+      mixSharesById = {};
+      hasManualMixOverride = false;
+      updateMixBaselines(vertical);
+      updateVerticalSwitchUi();
+      render();
+    }
+
+    function initVerticalSwitch() {
+      const container = byId("verticalSwitch");
+      container.innerHTML = verticalOptions
+        .map((v) => `<button type="button" data-vertical="${v.id}">${v.label}</button>`)
+        .join("");
+      Array.from(container.querySelectorAll("button")).forEach((btn) => {
+        btn.addEventListener("click", () => setActiveVertical(btn.getAttribute("data-vertical")));
+      });
+      updateVerticalSwitchUi();
+    }
+
+    function initControls() {
+      controls.takeRate.value = data.targets.take_rate;
+      controls.ltMonths.value = data.assumptions.recurring_donor_lifetime_months;
+      controls.otRepeat.value = data.assumptions.one_time_donor_year2_repeat_rate;
+      controls.newRecShare.value = data.assumptions.new_donor_year1_split.recurring;
+      controls.maxWhales.value = data.assumptions.max_new_whales_per_year ?? 2;
+      controls.logoMetric.value = "median";
+      controls.acqYear.value = "2026";
+
+      Object.values(controls).forEach((el) => {
+        el.addEventListener("input", render);
+        el.addEventListener("change", render);
+      });
+
+      initVerticalSwitch();
+      setActiveVertical(activeVertical);
     }
 
     function computeModel() {
+      const vertical = getVerticalData(activeVertical);
+      const hCohort = vertical.cohortAnchor2025 || {};
+      const hSplit = vertical.oneTimeRecurring || {};
+      const y2024Split = hSplit["2024"] || {};
       const targets = {
-        2024: Number(data.targets.cc_gpv_m["2024"]),
-        2025: Number(data.targets.cc_gpv_m["2025"]),
+        2024: Number(vertical.targetsGpvM["2024"] || 0),
+        2025: Number(vertical.targetsGpvM["2025"] || 0),
         2026: Number(controls.t2026.value),
         2027: Number(controls.t2027.value),
         2028: Number(controls.t2028.value)
@@ -341,16 +559,18 @@
       const oneTimeRepeat = Number(controls.otRepeat.value);
       const existingExpansion = Number(controls.existingExpansion.value);
       const newRecurringShare = Number(controls.newRecShare.value);
-      const maxWhales = Number(controls.maxWhales.value);
+      const maxWhales = Math.max(0, Number(controls.maxWhales.value) || 0);
       const lt100kPerLogoOverride = Number(data.assumptions.lt_100k_year1_gpv_per_logo_override_m || 0.05);
       const recurringCarry = Math.pow(1 - 1 / ltMonths, 12);
 
       const ramp = 1.0;
 
-      const h = data.historical;
-      const legacy2024 = (h.cc_one_time_recurring["2024"].one_time + h.cc_one_time_recurring["2024"].recurring) / 1_000_000;
-      const legacy2025 = h.cohort_anchor_2025.legacy_contribution / 1_000_000;
-      const observedNrr = legacy2024 > 0 ? legacy2025 / legacy2024 : 0;
+      const legacy2024 = (Number(y2024Split.one_time || 0) + Number(y2024Split.recurring || 0)) / 1_000_000;
+      const legacy2025 = Number(hCohort.legacy_contribution || 0) / 1_000_000;
+      const observedNrrKpi = Number((vertical.legacyObservedKpis || {}).nrr_2024_to_2025);
+      const observedNrr = Number.isFinite(observedNrrKpi) && observedNrrKpi > 0
+        ? observedNrrKpi
+        : (legacy2024 > 0 ? legacy2025 / legacy2024 : 0);
       const observedY1Y2Ratio = observedNrr > 0 ? 1 / observedNrr : 0;
 
       const cohorts = [
@@ -370,16 +590,16 @@
         });
       });
 
-      state.legacy_2024[2024].oneTime = h.cc_one_time_recurring["2024"].one_time / 1_000_000;
-      state.legacy_2024[2024].recurring = h.cc_one_time_recurring["2024"].recurring / 1_000_000;
+      state.legacy_2024[2024].oneTime = Number(y2024Split.one_time || 0) / 1_000_000;
+      state.legacy_2024[2024].recurring = Number(y2024Split.recurring || 0) / 1_000_000;
       state.legacy_2024[2024].total = state.legacy_2024[2024].oneTime + state.legacy_2024[2024].recurring;
 
-      state.legacy_2024[2025].oneTime = h.cohort_anchor_2025.legacy_one_time / 1_000_000;
-      state.legacy_2024[2025].recurring = h.cohort_anchor_2025.legacy_recurring / 1_000_000;
+      state.legacy_2024[2025].oneTime = Number(hCohort.legacy_one_time || 0) / 1_000_000;
+      state.legacy_2024[2025].recurring = Number(hCohort.legacy_recurring || 0) / 1_000_000;
       state.legacy_2024[2025].total = state.legacy_2024[2025].oneTime + state.legacy_2024[2025].recurring;
 
-      const new2025RawTotal = h.cohort_anchor_2025.new_2025_contribution / 1_000_000;
-      const new2025RecShare = new2025RawTotal > 0 ? (h.cohort_anchor_2025.new_recurring / 1_000_000) / new2025RawTotal : newRecurringShare;
+      const new2025RawTotal = Number(hCohort.new_2025_contribution || 0) / 1_000_000;
+      const new2025RecShare = new2025RawTotal > 0 ? (Number(hCohort.new_recurring || 0) / 1_000_000) / new2025RawTotal : newRecurringShare;
       const new2025TargetTotal = Math.max(0, targets[2025] - state.legacy_2024[2025].total);
       state.cohort_2025[2025].recurring = new2025TargetTotal * new2025RecShare;
       state.cohort_2025[2025].oneTime = new2025TargetTotal * (1 - new2025RecShare);
@@ -428,8 +648,8 @@
         };
       }
 
-      const bracketDist = data.segmentation.cc_2025_new_accounts_distribution;
-      const allDist = data.segmentation.cc_2025_distribution || [];
+      const bracketDist = vertical.newAccountsDistribution2025 || [];
+      const allDist = vertical.distribution2025 || [];
       const newDistById = {};
       bracketDist.forEach((b) => { newDistById[b.id] = b; });
       const allDistById = {};
@@ -445,23 +665,63 @@
       let newTotalGpv = 0;
       bracketDist.forEach((b) => { newTotalGpv += Number(b.gpv_total || 0); });
 
-      const rawShares = {};
-      bracketDist.forEach((b) => {
-        rawShares[b.id] = Math.max(0, Number(mixSharesById[b.id] ?? legacyBaselineById[b.id] ?? 0));
-      });
-      const shareSum = Object.values(rawShares).reduce((a, b) => a + b, 0);
-      const normalizedShares = {};
-      bracketDist.forEach((b) => {
-        normalizedShares[b.id] = shareSum > 0 ? rawShares[b.id] / shareSum : 0;
-      });
+      const weightedAllocate = (receiverIds, amountPct) => {
+        const out = {};
+        const ids = receiverIds.slice();
+        const wSum = ids.reduce((s, id) => s + Math.max(0, Number(defaultWeightsById[id] || 0)), 0);
+        if (wSum > 0) {
+          ids.forEach((id) => {
+            out[id] = amountPct * (Math.max(0, Number(defaultWeightsById[id] || 0)) / wSum);
+          });
+        } else {
+          const n = Math.max(1, ids.length);
+          ids.forEach((id) => { out[id] = amountPct / n; });
+        }
+        return out;
+      };
 
-      const minWhales = 1;
+      const bracketIds = bracketDist.map((b) => b.id);
+      const enteredSharesPctById = {};
+      if (hasManualMixOverride) {
+        const manual = {};
+        bracketIds.forEach((id) => {
+          if (id in mixSharesById) manual[id] = Math.max(0, Number(mixSharesById[id] || 0));
+        });
+        let manualSum = Object.values(manual).reduce((a, b) => a + b, 0);
+        if (manualSum > 100 && manualSum > 0) {
+          const scale = 100 / manualSum;
+          Object.keys(manual).forEach((id) => { manual[id] *= scale; });
+          manualSum = 100;
+        }
+
+        bracketIds.forEach((id) => { enteredSharesPctById[id] = 0; });
+        Object.keys(manual).forEach((id) => { enteredSharesPctById[id] = manual[id]; });
+
+        const freeIds = bracketIds.filter((id) => !(id in manual));
+        const remainingPct = Math.max(0, 100 - manualSum);
+        if (freeIds.length > 0 && remainingPct > 0) {
+          const allocated = weightedAllocate(freeIds, remainingPct);
+          freeIds.forEach((id) => { enteredSharesPctById[id] = Math.max(0, Number(allocated[id] || 0)); });
+        }
+      } else {
+        const rawShares = {};
+        bracketDist.forEach((b) => {
+          rawShares[b.id] = Math.max(0, Number(legacyBaselineById[b.id] ?? 0));
+        });
+        const rawSum = Object.values(rawShares).reduce((a, b) => a + b, 0);
+        bracketDist.forEach((b) => {
+          const normalized = rawSum > 0 ? rawShares[b.id] / rawSum : 0;
+          enteredSharesPctById[b.id] = normalized * 100;
+        });
+      }
+
       const acq = [];
+      const whaleWarnings = {};
       [2026, 2027, 2028].forEach((y) => {
         const newCohort = perYear[y].newCohort;
-        bracketDist.forEach((b) => {
-          const share = normalizedShares[b.id] || 0;
-          const requiredGpv = newCohort * share;
+        const yearRows = bracketDist.map((b) => {
+          const intentShare = Math.max(0, Number(enteredSharesPctById[b.id] || 0)) / 100;
+          const intentGpv = newCohort * intentShare;
           let perLogo = (controls.logoMetric.value === "avg" ? b.avg_year1_gpv : b.median_year1_gpv) / 1_000_000;
           if (perLogo <= 0) {
             const allBucket = allDistById[b.id];
@@ -472,11 +732,55 @@
           if (b.id === "lt_100k") {
             perLogo = lt100kPerLogoOverride;
           }
-          let logos = perLogo > 0 ? requiredGpv / perLogo : 0;
-          if (b.id === "10m_plus") {
-            logos = Math.max(minWhales, logos);
+          return {
+            year: y,
+            bracket: b.label,
+            bracketId: b.id,
+            intentShare,
+            intentGpv,
+            feasibleGpv: intentGpv,
+            perLogo,
+            requiredLogosExact: 0,
+            feasibleLogosExact: 0,
+            impliedLogos: 0
+          };
+        });
+
+        const whaleRow = yearRows.find((r) => r.bracketId === "10m_plus");
+        let whaleWarning = null;
+        if (whaleRow && whaleRow.perLogo > 0) {
+          whaleRow.impliedLogos = whaleRow.intentGpv / whaleRow.perLogo;
+          whaleWarning = {
+            year: y,
+            impliedLogos: whaleRow.impliedLogos,
+            cap: maxWhales,
+            overflowGpv: 0
+          };
+          const whaleCapGpv = Math.max(0, maxWhales) * whaleRow.perLogo;
+          if (whaleRow.feasibleGpv > whaleCapGpv) {
+            const overflow = whaleRow.feasibleGpv - whaleCapGpv;
+            whaleRow.feasibleGpv = whaleCapGpv;
+            whaleWarning.overflowGpv = overflow;
+
+            const receiverIds = yearRows.filter((r) => r.bracketId !== "10m_plus").map((r) => r.bracketId);
+            const allocShares = weightedAllocate(receiverIds, 100);
+            yearRows.forEach((r) => {
+              if (r.bracketId === "10m_plus") return;
+              const w = Math.max(0, Number(allocShares[r.bracketId] || 0)) / 100;
+              r.feasibleGpv += overflow * w;
+            });
           }
-          acq.push({ year: y, bracket: b.label, bracketId: b.id, requiredGpv, perLogo, logos });
+        }
+        whaleWarnings[y] = whaleWarning;
+
+        yearRows.forEach((r) => {
+          r.requiredLogosExact = r.perLogo > 0 ? r.intentGpv / r.perLogo : 0;
+          r.feasibleLogosExact = r.perLogo > 0 ? r.feasibleGpv / r.perLogo : 0;
+          if (!hasManualMixOverride) {
+            r.requiredLogosExact = r.feasibleLogosExact;
+            r.intentGpv = r.feasibleGpv;
+          }
+          acq.push(r);
         });
       });
 
@@ -521,6 +825,9 @@
       });
 
       return {
+        verticalId: activeVertical,
+        verticalLabel: vertical.label,
+        verticalDefinition: verticalDefinitionById[activeVertical] || "",
         targets,
         takeRate,
         ltMonths,
@@ -534,9 +841,13 @@
         state,
         perYear,
         acq,
+        whaleWarnings,
         historicalAcq,
-        minWhales,
-        shareSum,
+        shareSum: hasManualMixOverride
+          ? Object.values(mixSharesById).reduce((a, b) => a + Math.max(0, Number(b || 0)), 0)
+          : 100,
+        enteredSharesPctById,
+        hasManualMixOverride,
         observedNrr,
         observedY1Y2Ratio,
         lt100kPerLogoOverride
@@ -545,9 +856,9 @@
 
     function renderCohorts(m) {
       const t = byId("cohortTable");
-      let html = "<thead><tr><th>Cohort / Year</th><th>2024</th><th class=\"yoy-head\">YoY 25/24</th><th>2025</th><th class=\"yoy-head\">YoY 26/25</th><th>2026</th><th class=\"yoy-head\">YoY 27/26</th><th>2027</th><th class=\"yoy-head\">YoY 28/27</th><th>2028</th></tr></thead><tbody>";
+      let html = "<thead><tr><th>Cohort / Year</th><th>2024</th><th class=\"yoy-head\">YoY</th><th>2025</th><th class=\"yoy-head\">YoY</th><th>2026</th><th class=\"yoy-head\">YoY</th><th>2027</th><th class=\"yoy-head\">YoY</th><th>2028</th></tr></thead><tbody>";
 
-      const rowCells = (valuesByYear, startYear, strong = false) => {
+      const rowCells = (valuesByYear, startYear, strong = false, showYoy = true) => {
         let cells = "";
 
         const valueCell = (v) => strong ? `<td><strong>${fmtM(v)}</strong></td>` : `<td>${fmtM(v)}</td>`;
@@ -576,7 +887,7 @@
           const hasPY = py >= startYear;
           const vY = valuesByYear[y] || 0;
           const vPY = valuesByYear[py] || 0;
-          cells += yoyCell(vY, vPY, hasY, hasPY);
+          cells += showYoy ? yoyCell(vY, vPY, hasY, hasPY) : "<td class=\"blank yoy-cell\">-</td>";
           cells += hasY ? valueCell(vY) : "<td class=\"blank\">-</td>";
         }
         return cells;
@@ -594,7 +905,7 @@
 
       const arrValues = {};
       m.years.forEach((y) => { arrValues[y] = (m.perYear[y].modeled || 0) * m.takeRate; });
-      html += `<tr><td><strong>ARR (@take rate)</strong></td>${rowCells(arrValues, 2024, true)}</tr>`;
+      html += `<tr><td><strong>ARR (@take rate)</strong></td>${rowCells(arrValues, 2024, true, false)}</tr>`;
 
       html += "</tbody>";
       t.innerHTML = html;
@@ -605,49 +916,71 @@
       const focus = controls.acqYear.value;
       const historicalView = (focus === "legacy2024" || focus === "2025");
       let html = historicalView
-        ? `<thead><tr><th>Bracket</th><th>Mix Share</th><th>Editable Share (%)</th><th>Accounts N</th><th>GPV ($M)</th><th>Year-1 GPV / Logo ($M)</th><th>Constraint</th></tr></thead><tbody>`
-        : `<thead><tr><th>Bracket</th><th>Mix Share</th><th>Editable Share (%)</th><th>Required Accounts N</th><th>Required GPV ($M)</th><th>Year-1 GPV / Logo ($M)</th><th>Constraint</th></tr></thead><tbody>`;
+        ? `<thead><tr><th>Bracket</th><th>Share (%)</th><th>Accounts N</th><th>GPV ($M)</th><th>Year-1 GPV / Logo ($M)</th><th>Constraint</th></tr></thead><tbody>`
+        : `<thead><tr><th>Bracket</th><th>Share (%)</th><th>Required Accounts N</th><th>Required GPV ($M)</th><th>Year-1 GPV / Logo ($M)</th><th>Constraint</th></tr></thead><tbody>`;
 
       if (historicalView) {
         const rows = m.historicalAcq[focus] || [];
         rows.forEach((r) => {
-          const editable = mixSharesById[r.bracketId] ?? legacyBaselineById[r.bracketId] ?? 0;
-          html += `<tr><td>${r.bracket}</td><td>${pct(r.share)}</td><td>${fmt(editable)}</td><td>${r.accountsN}</td><td>${fmt(r.gpvM)}</td><td>${fmtLogo(r.perLogoM)}</td><td>${r.constraint}</td></tr>`;
+          const mixPct = r.share * 100;
+          html += `<tr><td>${r.bracket}</td><td>${fmt(mixPct)}</td><td>${r.accountsN}</td><td>${fmt(r.gpvM)}</td><td>${fmtLogo(r.perLogoM)}</td><td>${r.constraint}</td></tr>`;
         });
         const totalN = rows.reduce((s, r) => s + Number(r.accountsN || 0), 0);
         const totalGpv = rows.reduce((s, r) => s + Number(r.gpvM || 0), 0);
-        html += `<tr><td><strong>Total (${focus === "legacy2024" ? "Legacy 2024" : "2025"})</strong></td><td><strong>${pct(1)}</strong></td><td><strong>-</strong></td><td><strong>${totalN}</strong></td><td><strong>${fmt(totalGpv)}</strong></td><td><strong>-</strong></td><td><strong>-</strong></td></tr>`;
+        html += `<tr><td><strong>Total (${focus === "legacy2024" ? "Legacy 2024" : "2025"})</strong></td><td><strong>${pct(1)}</strong></td><td><strong>${totalN}</strong></td><td><strong>${fmt(totalGpv)}</strong></td><td><strong>-</strong></td><td><strong>-</strong></td></tr>`;
       } else {
         const focusYear = Number(focus);
         const rows = m.acq.filter((r) => r.year === focusYear);
         const targetNewCohort = m.perYear[focusYear]?.newCohort || 0;
 
         rows.forEach((r) => {
-          const share = targetNewCohort > 0 ? r.requiredGpv / targetNewCohort : 0;
-          const roundedN = Math.ceil(r.logos);
-          const editable = mixSharesById[r.bracketId] ?? legacyBaselineById[r.bracketId] ?? 0;
+          const share = targetNewCohort > 0 ? r.feasibleGpv / targetNewCohort : 0;
+          const sharePct = share * 100;
+          const requiredRounded = Math.ceil(r.requiredLogosExact);
+          const feasibleRounded = Math.ceil(r.feasibleLogosExact);
+          const editable = m.hasManualMixOverride
+            ? (m.enteredSharesPctById[r.bracketId] ?? sharePct)
+            : sharePct;
           let whaleCell = "-";
           if (r.bracketId === "10m_plus") {
-            if (roundedN < m.minWhales) {
-              whaleCell = `<span class=\"bad\">Need >= ${m.minWhales}</span>`;
-            } else if (roundedN > m.maxWhales) {
-              whaleCell = `<span class=\"bad\">Exceeds (${roundedN} > ${m.maxWhales})</span>`;
+            if (r.impliedLogos > m.maxWhales + 1e-9) {
+              whaleCell = `<span class=\"bad\">Capped (${fmt(r.impliedLogos)} > ${m.maxWhales})</span>`;
             } else {
-              whaleCell = `<span>OK (${roundedN})</span>`;
+              whaleCell = `<span>OK (${feasibleRounded})</span>`;
             }
           }
-          html += `<tr><td>${r.bracket}</td><td>${pct(share)}</td><td><input class=\"mix-share-inline\" data-bracket-id=\"${r.bracketId}\" type=\"number\" step=\"0.1\" min=\"0\" value=\"${fmt(editable)}\" style=\"width:100px\" /></td><td>${roundedN}</td><td>${fmt(r.requiredGpv)}</td><td>${fmtLogo(r.perLogo)}</td><td>${whaleCell}</td></tr>`;
+          html += `<tr><td>${r.bracket}</td><td><input class=\"mix-share-inline\" data-bracket-id=\"${r.bracketId}\" data-current-share-pct=\"${sharePct}\" type=\"number\" step=\"0.1\" min=\"0\" value=\"${fmt(editable)}\" style=\"width:100px\" /></td><td>${requiredRounded}</td><td>${fmt(r.intentGpv)}</td><td>${fmtLogo(r.perLogo)}</td><td>${whaleCell}</td></tr>`;
         });
 
-        const totalRounded = rows.reduce((s, r) => s + Math.ceil(r.logos), 0);
-        html += `<tr><td><strong>Total (${focusYear})</strong></td><td><strong>${pct(1)}</strong></td><td><strong>-</strong></td><td><strong>${totalRounded}</strong></td><td><strong>${fmt(targetNewCohort)}</strong></td><td><strong>-</strong></td><td><strong>-</strong></td></tr>`;
+        const totalRequired = rows.reduce((s, r) => s + Math.ceil(r.requiredLogosExact), 0);
+        html += `<tr><td><strong>Total (${focusYear})</strong></td><td><strong>${pct(1)}</strong></td><td><strong>${totalRequired}</strong></td><td><strong>${fmt(targetNewCohort)}</strong></td><td><strong>-</strong></td><td><strong>-</strong></td></tr>`;
       }
       html += "</tbody>";
       t.innerHTML = html;
 
+      const warning = byId("acqWarning");
+      if (!historicalView) {
+        const focusYear = Number(focus);
+        const w = m.whaleWarnings[focusYear];
+        if (w && w.impliedLogos > m.maxWhales + 1e-9) {
+          warning.style.display = "block";
+          warning.textContent = `Warning: ${focusYear} mix implies ${fmt(w.impliedLogos)} new 10M+ logos (> ${m.maxWhales}). Model caps at ${m.maxWhales} and redistributes $${fmt(w.overflowGpv)}M to non-whale brackets.`;
+        } else {
+          warning.style.display = "none";
+          warning.textContent = "";
+        }
+      } else {
+        warning.style.display = "none";
+        warning.textContent = "";
+      }
+
       if (!historicalView) {
         Array.from(t.querySelectorAll(".mix-share-inline")).forEach((input) => {
           input.addEventListener("input", (e) => {
+            if (!hasManualMixOverride) {
+              hasManualMixOverride = true;
+              mixSharesById = {};
+            }
             const id = e.target.getAttribute("data-bracket-id");
             mixSharesById[id] = Math.max(0, Number(e.target.value) || 0);
             render();
@@ -657,9 +990,9 @@
     }
 
     function renderMeta(m) {
-      const c = data.segmentation.coverage_2024_known_accounts;
-      byId("sourceLine").textContent = `Generated: ${data.metadata.generated_at} | Sources: 2024+2025 volume reports, faith report, FRU sectors | Entered mix sum: ${fmt(m.shareSum)}%`;
-      byId("coverageLine").innerHTML = `2024 known-account enrichment: <span class=\"pill\">NTEE ${c.ntee_coverage_pct}%</span><span class=\"pill\">FRU Sector ${c.fru_sector_coverage_pct}%</span><span class=\"pill\">FRU Subsector ${c.fru_subsector_coverage_pct}%</span>`;
+      byId("modelTitle").textContent = `${m.verticalLabel} Growth Model (2024-2028)`;
+      byId("sourceLine").textContent = `Generated: ${data.metadata.generated_at} | Vertical: ${m.verticalLabel} | Sources: 2024+2025 volume reports, religious cohorts, FRU sectors | Entered mix sum: ${fmt(m.shareSum)}%`;
+      byId("assumptionVerticalDef").textContent = m.verticalDefinition;
 
       byId("assumptionLt").textContent = String(m.ltMonths);
       byId("assumptionCarry").textContent = pct(m.recurringCarry);
@@ -668,7 +1001,7 @@
       byId("assumptionExp").textContent = pct(m.existingExpansion);
       byId("observedNrr").textContent = pct(m.observedNrr);
       byId("observedY1Y2").textContent = pct(m.observedY1Y2Ratio);
-      byId("assumptionLt100kPerLogo").textContent = fmtM(m.lt100kPerLogoOverride);
+      byId("assumptionLt100kPerLogo").textContent = `${fmtLogo(m.lt100kPerLogoOverride)}M ($${Math.round(m.lt100kPerLogoOverride * 1_000_000).toLocaleString()})`;
       byId("assumptionWhales").textContent = String(m.maxWhales);
     }
 
@@ -680,7 +1013,6 @@
     }
 
     initControls();
-    render();
   </script>
 </body>
 </html>
