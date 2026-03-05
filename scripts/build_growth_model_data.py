@@ -3,7 +3,6 @@ import csv
 import json
 import math
 import re
-from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +12,10 @@ INPUTS = ROOT / "_inputs" / "fru"
 OUT = ROOT / "model" / "growth_model.data.json"
 OUT_JS = ROOT / "model" / "growth_model.data.js"
 OUT_COVERAGE = ROOT / "model" / "coverage_2024_enrichment.csv"
+RELIGIOUS_COHORTS = ROOT / "model" / "religious_cohorts_2024_2025.csv"
+RELIGIOUS_REPORT_NEW = INPUTS / "2025_religious_accounts_donation_volume_report.csv"
+RELIGIOUS_REPORT_OLD = INPUTS / "religious_accounts_donation_volume_report.csv"
+RELIGIOUS_REPORT = RELIGIOUS_REPORT_NEW if RELIGIOUS_REPORT_NEW.exists() else RELIGIOUS_REPORT_OLD
 
 
 def money(value: str) -> Decimal:
@@ -114,17 +117,34 @@ with (INPUTS / "All Accounts Volume by Source & Frequency (2025).csv").open("r",
             row.get("Totals, Recurring #")
         )
 
-# Faith accounts list and 2025 official total
+# Faith accounts list and totals.
 faith_account_ids = set()
 faith_2025_report_total = Decimal("0")
-with (INPUTS / "religious_accounts_donation_volume_report.csv").open("r", encoding="utf-8-sig", newline="") as f:
-    reader = csv.DictReader(f)
-    for row in reader:
-        account_id = (row.get("Account ID") or "").strip()
-        if not account_id:
-            continue
-        faith_account_ids.add(account_id)
-        faith_2025_report_total += money(row.get("Total Donation Volume $"))
+faith_2024_cohort_total = Decimal("0")
+faith_2025_cohort_total = Decimal("0")
+religious_source_files = []
+
+if RELIGIOUS_COHORTS.exists():
+    with RELIGIOUS_COHORTS.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            account_id = (row.get("account_id") or "").strip()
+            if not account_id:
+                continue
+            faith_account_ids.add(account_id)
+            faith_2024_cohort_total += money(row.get("gpv_2024_usd"))
+            faith_2025_cohort_total += money(row.get("gpv_2025_usd"))
+    religious_source_files.append(str(RELIGIOUS_COHORTS))
+else:
+    with RELIGIOUS_REPORT.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            account_id = (row.get("Account ID") or "").strip()
+            if not account_id:
+                continue
+            faith_account_ids.add(account_id)
+            faith_2025_report_total += money(row.get("Total Donation Volume $"))
+    religious_source_files.append(str(RELIGIOUS_REPORT))
 
 # Sector master mapping (for FRU + NTEE fallback)
 master_by_domain = {}
@@ -224,46 +244,84 @@ coverage["fru_sector_coverage_pct"] = round(coverage["with_fru_sector"] / covera
 coverage["fru_subsector_coverage_pct"] = round(coverage["with_fru_subsector"] / coverage["total_2024_accounts"] * 100.0, 2)
 
 # Totals
+ids_2024 = set(accounts_2024)
+ids_2025 = set(accounts_2025)
+
 all_2024_total = sum((x["gpv_total"] for x in accounts_2024.values()), Decimal("0"))
 all_2025_total = sum((x["gpv_total"] for x in accounts_2025.values()), Decimal("0"))
 
-faith_2024_total = sum((accounts_2024[a]["gpv_total"] for a in faith_account_ids if a in accounts_2024), Decimal("0"))
-# align 2025 faith to official report total
-faith_2025_total = faith_2025_report_total
+faith_2024_total = (
+    faith_2024_cohort_total
+    if faith_2024_cohort_total > 0
+    else sum((accounts_2024[a]["gpv_total"] for a in faith_account_ids if a in accounts_2024), Decimal("0"))
+)
+faith_2025_total = faith_2025_cohort_total if faith_2025_cohort_total > 0 else faith_2025_report_total
 
 cc_2024_total = all_2024_total - faith_2024_total
 cc_2025_total = all_2025_total - faith_2025_total
 
-# legacy/new split for 2025 C&C
-ids_2024 = set(accounts_2024)
-ids_2025 = set(accounts_2025)
-legacy_ids_2025 = (ids_2025 & ids_2024) - faith_account_ids
-new_ids_2025 = (ids_2025 - ids_2024) - faith_account_ids
+vertical_labels = {
+    "all": "All",
+    "cc": "C&C",
+    "faith": "Faith",
+}
 
-legacy_2025_gpv = sum((accounts_2025[a]["gpv_total"] for a in legacy_ids_2025), Decimal("0"))
-new_2025_gpv = sum((accounts_2025[a]["gpv_total"] for a in new_ids_2025), Decimal("0"))
+vertical_ids = {
+    "all": {
+        "2024": set(ids_2024),
+        "2025": set(ids_2025),
+    },
+    "cc": {
+        "2024": {aid for aid in ids_2024 if aid not in faith_account_ids},
+        "2025": {aid for aid in ids_2025 if aid not in faith_account_ids},
+    },
+    "faith": {
+        "2024": {aid for aid in ids_2024 if aid in faith_account_ids},
+        "2025": {aid for aid in ids_2025 if aid in faith_account_ids},
+    },
+}
+for k in vertical_ids:
+    vertical_ids[k]["legacy_2025"] = vertical_ids[k]["2025"] & vertical_ids[k]["2024"]
+    vertical_ids[k]["new_2025"] = vertical_ids[k]["2025"] - vertical_ids[k]["2024"]
 
-# one-time/recurring C&C totals
-cc_2024_ot = sum((x["gpv_one_time"] for aid, x in accounts_2024.items() if aid not in faith_account_ids), Decimal("0"))
-cc_2024_rec = sum((x["gpv_recurring"] for aid, x in accounts_2024.items() if aid not in faith_account_ids), Decimal("0"))
-cc_2025_ot = sum((accounts_2025[aid].get("gpv_one_time", Decimal("0")) for aid in ids_2025 if aid not in faith_account_ids), Decimal("0"))
-cc_2025_rec = sum((accounts_2025[aid].get("gpv_recurring", Decimal("0")) for aid in ids_2025 if aid not in faith_account_ids), Decimal("0"))
-legacy_2025_ot = sum(
-    (accounts_2025[aid].get("gpv_one_time", Decimal("0")) for aid in legacy_ids_2025),
-    Decimal("0"),
-)
-legacy_2025_rec = sum(
-    (accounts_2025[aid].get("gpv_recurring", Decimal("0")) for aid in legacy_ids_2025),
-    Decimal("0"),
-)
-new_2025_ot = sum(
-    (accounts_2025[aid].get("gpv_one_time", Decimal("0")) for aid in new_ids_2025),
-    Decimal("0"),
-)
-new_2025_rec = sum(
-    (accounts_2025[aid].get("gpv_recurring", Decimal("0")) for aid in new_ids_2025),
-    Decimal("0"),
-)
+totals_by_vertical = {
+    "all": {"2024": all_2024_total, "2025": all_2025_total},
+    "cc": {"2024": cc_2024_total, "2025": cc_2025_total},
+    "faith": {"2024": faith_2024_total, "2025": faith_2025_total},
+}
+
+one_time_recurring_by_vertical = {}
+cohort_anchor_by_vertical = {}
+for k in ("all", "cc", "faith"):
+    ids24 = vertical_ids[k]["2024"]
+    ids25 = vertical_ids[k]["2025"]
+    legacy_ids_2025 = vertical_ids[k]["legacy_2025"]
+    new_ids_2025 = vertical_ids[k]["new_2025"]
+
+    y24_ot = sum((accounts_2024[aid]["gpv_one_time"] for aid in ids24), Decimal("0"))
+    y24_rec = sum((accounts_2024[aid]["gpv_recurring"] for aid in ids24), Decimal("0"))
+    y25_ot = sum((accounts_2025[aid].get("gpv_one_time", Decimal("0")) for aid in ids25), Decimal("0"))
+    y25_rec = sum((accounts_2025[aid].get("gpv_recurring", Decimal("0")) for aid in ids25), Decimal("0"))
+
+    one_time_recurring_by_vertical[k] = {
+        "2024": {"one_time": y24_ot, "recurring": y24_rec},
+        "2025": {"one_time": y25_ot, "recurring": y25_rec},
+    }
+
+    legacy_2025_gpv = sum((accounts_2025[aid]["gpv_total"] for aid in legacy_ids_2025), Decimal("0"))
+    new_2025_gpv = sum((accounts_2025[aid]["gpv_total"] for aid in new_ids_2025), Decimal("0"))
+    legacy_2025_ot = sum((accounts_2025[aid].get("gpv_one_time", Decimal("0")) for aid in legacy_ids_2025), Decimal("0"))
+    legacy_2025_rec = sum((accounts_2025[aid].get("gpv_recurring", Decimal("0")) for aid in legacy_ids_2025), Decimal("0"))
+    new_2025_ot = sum((accounts_2025[aid].get("gpv_one_time", Decimal("0")) for aid in new_ids_2025), Decimal("0"))
+    new_2025_rec = sum((accounts_2025[aid].get("gpv_recurring", Decimal("0")) for aid in new_ids_2025), Decimal("0"))
+    cohort_anchor_by_vertical[k] = {
+        "legacy_contribution": legacy_2025_gpv,
+        "new_2025_contribution": new_2025_gpv,
+        "legacy_one_time": legacy_2025_ot,
+        "legacy_recurring": legacy_2025_rec,
+        "new_one_time": new_2025_ot,
+        "new_recurring": new_2025_rec,
+    }
 
 # Brackets for analytical targeting
 brackets = [
@@ -281,59 +339,159 @@ def in_bucket(v: float, b):
     return v >= b["min"] and (upper is None or v < upper)
 
 
-cc_2025_values = [float(accounts_2025[aid]["gpv_total"]) for aid in ids_2025 if aid not in faith_account_ids]
-cc_new_2025_values = [float(accounts_2025[aid]["gpv_total"]) for aid in new_ids_2025]
+def build_bracket_stats(values_2025, new_values_2025):
+    all_bracket_stats = []
+    new_bracket_stats = []
+    for b in brackets:
+        all_vals = [v for v in values_2025 if in_bucket(v, b)]
+        new_vals = [v for v in new_values_2025 if in_bucket(v, b)]
+        all_bracket_stats.append(
+            {
+                "id": b["id"],
+                "label": b["label"],
+                "account_count": len(all_vals),
+                "gpv_total": round(sum(all_vals), 2),
+                "share_of_accounts": round((len(all_vals) / len(values_2025) * 100.0) if values_2025 else 0.0, 2),
+                "share_of_gpv": round((sum(all_vals) / sum(values_2025) * 100.0) if values_2025 else 0.0, 2),
+            }
+        )
+        new_bracket_stats.append(
+            {
+                "id": b["id"],
+                "label": b["label"],
+                "account_count": len(new_vals),
+                "gpv_total": round(sum(new_vals), 2),
+                "share_of_accounts": round((len(new_vals) / len(new_values_2025) * 100.0) if new_values_2025 else 0.0, 2),
+                "share_of_gpv": round((sum(new_vals) / sum(new_values_2025) * 100.0) if new_values_2025 else 0.0, 2),
+                "avg_year1_gpv": round((sum(new_vals) / len(new_vals)) if new_vals else 0.0, 2),
+                "median_year1_gpv": round(percentile(new_vals, 50), 2),
+            }
+        )
+    return all_bracket_stats, new_bracket_stats
 
-all_bracket_stats = []
-new_bracket_stats = []
 
-for b in brackets:
-    all_vals = [v for v in cc_2025_values if in_bucket(v, b)]
-    new_vals = [v for v in cc_new_2025_values if in_bucket(v, b)]
-    all_bracket_stats.append(
-        {
-            "id": b["id"],
-            "label": b["label"],
-            "account_count": len(all_vals),
-            "gpv_total": round(sum(all_vals), 2),
-            "share_of_accounts": round((len(all_vals) / len(cc_2025_values) * 100.0) if cc_2025_values else 0.0, 2),
-            "share_of_gpv": round((sum(all_vals) / sum(cc_2025_values) * 100.0) if cc_2025_values else 0.0, 2),
-        }
-    )
-    new_bracket_stats.append(
-        {
-            "id": b["id"],
-            "label": b["label"],
-            "account_count": len(new_vals),
-            "gpv_total": round(sum(new_vals), 2),
-            "share_of_accounts": round((len(new_vals) / len(cc_new_2025_values) * 100.0) if cc_new_2025_values else 0.0, 2),
-            "share_of_gpv": round((sum(new_vals) / sum(cc_new_2025_values) * 100.0) if cc_new_2025_values else 0.0, 2),
-            "avg_year1_gpv": round((sum(new_vals) / len(new_vals)) if new_vals else 0.0, 2),
-            "median_year1_gpv": round(percentile(new_vals, 50), 2),
-        }
-    )
+segmentation_by_vertical = {}
+for k in ("all", "cc", "faith"):
+    ids25 = vertical_ids[k]["2025"]
+    new25 = vertical_ids[k]["new_2025"]
+    values_2025 = [float(accounts_2025[aid]["gpv_total"]) for aid in ids25]
+    new_values_2025 = [float(accounts_2025[aid]["gpv_total"]) for aid in new25]
+    all_stats, new_stats = build_bracket_stats(values_2025, new_values_2025)
+    segmentation_by_vertical[k] = {
+        "distribution_2025": all_stats,
+        "new_accounts_distribution_2025": new_stats,
+    }
 
 # initial assumptions per discussion
 monthly_retention = Decimal("1") - (Decimal("1") / Decimal("16"))
 annual_recurring_carryover = monthly_retention ** Decimal("12")
 one_time_repeat_rate = Decimal("0.4")
 new_donor_recurring_share = Decimal("0.3")
+faith_cohort_nrr_override = Decimal("1.35")
 
-# Calibrate existing-account expansion from observed 2024 legacy -> 2025 legacy KPI.
-observed_legacy_nrr = (legacy_2025_gpv / cc_2024_total) if cc_2024_total else Decimal("0")
-carryover_component_ratio = (
-    ((cc_2024_ot * one_time_repeat_rate) + (cc_2024_rec * annual_recurring_carryover)) / cc_2024_total
-    if cc_2024_total
-    else Decimal("0")
-)
-implied_existing_expansion_rate = observed_legacy_nrr - carryover_component_ratio
-if implied_existing_expansion_rate < 0:
-    implied_existing_expansion_rate = Decimal("0")
+# Calibrate existing-account expansion per vertical from observed 2024 legacy -> 2025 legacy KPI.
+vertical_kpis = {}
+for k in ("all", "cc", "faith"):
+    t2024 = totals_by_vertical[k]["2024"]
+    y24_ot = one_time_recurring_by_vertical[k]["2024"]["one_time"]
+    y24_rec = one_time_recurring_by_vertical[k]["2024"]["recurring"]
+    legacy_2025_gpv = cohort_anchor_by_vertical[k]["legacy_contribution"]
+
+    observed_legacy_nrr = (legacy_2025_gpv / t2024) if t2024 else Decimal("0")
+    if k == "faith":
+        observed_legacy_nrr = faith_cohort_nrr_override
+    carryover_component_ratio = (
+        ((y24_ot * one_time_repeat_rate) + (y24_rec * annual_recurring_carryover)) / t2024
+        if t2024
+        else Decimal("0")
+    )
+    implied_existing_expansion_rate = observed_legacy_nrr - carryover_component_ratio
+    if implied_existing_expansion_rate < 0:
+        implied_existing_expansion_rate = Decimal("0")
+
+    vertical_kpis[k] = {
+        "nrr_2024_to_2025": q2(observed_legacy_nrr),
+        "carryover_component_ratio": q2(carryover_component_ratio),
+        "implied_existing_account_expansion_rate": q2(implied_existing_expansion_rate),
+    }
+
+cc_target_defaults = {
+    "2026": 2300.0,
+    "2027": 3900.0,
+    "2028": 6840.0,
+}
+faith_target_defaults = {
+    "2026": 502.0,
+    "2027": 860.0,
+    "2028": 1480.0,
+}
+cc_2025_m = q2(cc_2025_total / Decimal("1000000"))
+growth_multipliers = {
+    y: (cc_target_defaults[y] / cc_2025_m if cc_2025_m else 1.0)
+    for y in ("2026", "2027", "2028")
+}
+
+
+def build_targets_gpv_m(vertical_key: str):
+    t2024 = totals_by_vertical[vertical_key]["2024"] / Decimal("1000000")
+    t2025 = totals_by_vertical[vertical_key]["2025"] / Decimal("1000000")
+    out = {
+        "2024": q2(t2024),
+        "2025": q2(t2025),
+    }
+    if vertical_key == "cc":
+        out.update(cc_target_defaults)
+    elif vertical_key == "faith":
+        out.update(faith_target_defaults)
+    else:
+        for y in ("2026", "2027", "2028"):
+            out[y] = q2(t2025 * Decimal(str(growth_multipliers[y])))
+    return out
+
+
+verticals = {}
+for k in ("all", "cc", "faith"):
+    y24_ot = one_time_recurring_by_vertical[k]["2024"]["one_time"]
+    y24_rec = one_time_recurring_by_vertical[k]["2024"]["recurring"]
+    y25_ot = one_time_recurring_by_vertical[k]["2025"]["one_time"]
+    y25_rec = one_time_recurring_by_vertical[k]["2025"]["recurring"]
+
+    verticals[k] = {
+        "id": k,
+        "label": vertical_labels[k],
+        "targets_gpv_m": build_targets_gpv_m(k),
+        "historical": {
+            "gpv": {
+                "2024": q2(totals_by_vertical[k]["2024"]),
+                "2025": q2(totals_by_vertical[k]["2025"]),
+            },
+            "cohort_anchor_2025": {
+                kk: q2(vv) for kk, vv in cohort_anchor_by_vertical[k].items()
+            },
+            "one_time_recurring": {
+                "2024": {
+                    "one_time": q2(y24_ot),
+                    "recurring": q2(y24_rec),
+                    "recurring_share": q2((y24_rec / (y24_ot + y24_rec)) if (y24_ot + y24_rec) else Decimal("0")),
+                },
+                "2025": {
+                    "one_time": q2(y25_ot),
+                    "recurring": q2(y25_rec),
+                    "recurring_share": q2((y25_rec / (y25_ot + y25_rec)) if (y25_ot + y25_rec) else Decimal("0")),
+                },
+            },
+            "legacy_observed_kpis": vertical_kpis[k],
+        },
+        "segmentation": {
+            "distribution_2025": segmentation_by_vertical[k]["distribution_2025"],
+            "new_accounts_distribution_2025": segmentation_by_vertical[k]["new_accounts_distribution_2025"],
+        },
+    }
 
 model = {
     "metadata": {
-        "title": "Cause&Cure Growth Model",
-        "description": "C&C model built as Total FRU GPV minus Faith-based GPV.",
+        "title": "Growth Model",
+        "description": "Global growth model with vertical switch for All, C&C, and Faith.",
         "currency": "USD",
         "unit": "M",
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -341,18 +499,13 @@ model = {
             str(INPUTS / "2024_all_accounts_donations.csv"),
             str(INPUTS / "2025_all_orgs_dontations__fru_enriched.csv"),
             str(INPUTS / "All Accounts Volume by Source & Frequency (2025).csv"),
-            str(INPUTS / "religious_accounts_donation_volume_report.csv"),
+            *religious_source_files,
             str(INPUTS / "FUNDRAISEUP sectors.csv"),
         ],
     },
+    "verticals": verticals,
     "targets": {
-        "cc_gpv_m": {
-            "2024": q2(cc_2024_total / Decimal("1000000")),
-            "2025": q2(cc_2025_total / Decimal("1000000")),
-            "2026": 2300.0,
-            "2027": 3900.0,
-            "2028": 6840.0,
-        },
+        "cc_gpv_m": verticals["cc"]["targets_gpv_m"],
         "take_rate": 0.03,
     },
     "historical": {
@@ -368,31 +521,9 @@ model = {
             "2024": q2(cc_2024_total),
             "2025": q2(cc_2025_total),
         },
-        "cohort_anchor_2025": {
-            "legacy_contribution": q2(legacy_2025_gpv),
-            "new_2025_contribution": q2(new_2025_gpv),
-            "legacy_one_time": q2(legacy_2025_ot),
-            "legacy_recurring": q2(legacy_2025_rec),
-            "new_one_time": q2(new_2025_ot),
-            "new_recurring": q2(new_2025_rec),
-        },
-        "cc_one_time_recurring": {
-            "2024": {
-                "one_time": q2(cc_2024_ot),
-                "recurring": q2(cc_2024_rec),
-                "recurring_share": q2((cc_2024_rec / (cc_2024_ot + cc_2024_rec)) if (cc_2024_ot + cc_2024_rec) else Decimal("0")),
-            },
-            "2025": {
-                "one_time": q2(cc_2025_ot),
-                "recurring": q2(cc_2025_rec),
-                "recurring_share": q2((cc_2025_rec / (cc_2025_ot + cc_2025_rec)) if (cc_2025_ot + cc_2025_rec) else Decimal("0")),
-            },
-        },
-        "legacy_observed_kpis": {
-            "nrr_2024_to_2025": q2(observed_legacy_nrr),
-            "carryover_component_ratio": q2(carryover_component_ratio),
-            "implied_existing_account_expansion_rate": q2(implied_existing_expansion_rate),
-        },
+        "cohort_anchor_2025": verticals["cc"]["historical"]["cohort_anchor_2025"],
+        "cc_one_time_recurring": verticals["cc"]["historical"]["one_time_recurring"],
+        "legacy_observed_kpis": verticals["cc"]["historical"]["legacy_observed_kpis"],
     },
     "segmentation": {
         "taxonomy": {
@@ -401,15 +532,20 @@ model = {
         },
         "coverage_2024_known_accounts": coverage,
         "analytical_brackets": brackets,
-        "cc_2025_distribution": all_bracket_stats,
-        "cc_2025_new_accounts_distribution": new_bracket_stats,
+        "cc_2025_distribution": verticals["cc"]["segmentation"]["distribution_2025"],
+        "cc_2025_new_accounts_distribution": verticals["cc"]["segmentation"]["new_accounts_distribution_2025"],
+        "by_vertical": {
+            "all": verticals["all"]["segmentation"],
+            "cc": verticals["cc"]["segmentation"],
+            "faith": verticals["faith"]["segmentation"],
+        },
     },
     "assumptions": {
         "recurring_donor_lifetime_months": 16,
         "annual_recurring_carryover": q2(annual_recurring_carryover),
         "new_donor_year1_split": {"one_time": q2(Decimal("1") - new_donor_recurring_share), "recurring": q2(new_donor_recurring_share)},
         "one_time_donor_year2_repeat_rate": q2(one_time_repeat_rate),
-        "existing_account_expansion_rate": q2(implied_existing_expansion_rate),
+        "existing_account_expansion_rate": verticals["cc"]["historical"]["legacy_observed_kpis"]["implied_existing_account_expansion_rate"],
         "cohort_year2_nrr": 1.35,
         "new_account_year1_to_year2_gpv_ratio": 1.0,
         "lt_100k_year1_gpv_per_logo_override_m": 0.05,
@@ -418,6 +554,7 @@ model = {
     },
     "notes": [
         "2024 is treated as Legacy cohort because pre-2024 data is unavailable.",
+        "Model supports vertical switch: All, C&C, Faith.",
         "Detailed phase-2 modeling will be by FRU Sector/Subsector.",
         "NTEE is retained for validation and reconciliation.",
     ],
