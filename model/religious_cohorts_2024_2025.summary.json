@@ -1,0 +1,27 @@
+{
+  "generated_at": "2026-03-05T09:56:21+00:00",
+  "source_files": [
+    "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/2024_all_accounts_donations.csv",
+    "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/2025_religious_accounts_donation_volume_report.csv"
+  ],
+  "cohorts": {
+    "legacy_2024_base": {
+      "accounts": 185,
+      "gpv_2024_usd": 235556682.0,
+      "gpv_2025_usd": 281942508.0
+    },
+    "new_2025": {
+      "accounts": 61,
+      "gpv_2025_usd": 50202336.0
+    },
+    "total_religious_2025": {
+      "accounts": 246,
+      "gpv_2025_usd": 332144844.0
+    }
+  },
+  "quality_checks": {
+    "rows_with_missing_account_id_in_2025_report": 133,
+    "distinct_2024_accounts": 3799,
+    "distinct_2025_religious_accounts_with_id": 246
+  }
+}
