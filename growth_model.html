@@ -310,15 +310,12 @@
           <li id="assumptionVerticalDef"></li>
           <li>2024 and 2025 historical base is computed from raw reports with the same formula.</li>
           <li>2024 is modeled as Legacy cohort because pre-2024 data is unavailable.</li>
-          <li>Detailed segmentation uses FRU Sector/Subsector (primary) and NTEE (secondary for reconciliation).</li>
-          <li>Mapping priority for 2024 known accounts: Account ID match, then normalized name/domain fallback, then Unclassified.</li>
           <li>Recurring donor lifetime is fixed at <span id="assumptionLt"></span> months with annual carryover <span id="assumptionCarry"></span>.</li>
           <li>New donors in year-1 split as one-time/recurring = <span id="assumptionSplit"></span>.</li>
           <li>One-time donor year-2 repeat rate = <span id="assumptionOt"></span>.</li>
           <li>Existing-account expansion rate (new donor inflow inside existing logos) = <span id="assumptionExp"></span>.</li>
           <li>Observed KPI: 2024 legacy cohort NRR in 2025 = <span id="observedNrr"></span> (equivalent year-1/year-2 ratio: <span id="observedY1Y2"></span>).</li>
           <li>For &lt;0.1M bracket, Year-1 GPV / Logo is fixed at <span id="assumptionLt100kPerLogo"></span> per account.</li>
-          <li>Default is no structural bracket-mix shift in 2026-2028 (2025 new-logo mix baseline), with manual share overrides for planning.</li>
           <li>Constraint: at most <span id="assumptionWhales"></span> new 10M+ logos per year.</li>
         </ul>
       </div>
