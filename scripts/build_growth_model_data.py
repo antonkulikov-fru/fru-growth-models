@@ -2,20 +2,33 @@
 import csv
 import json
 import math
+import os
 import re
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-INPUTS = ROOT / "_inputs" / "fru"
-OUT = ROOT / "model" / "growth_model.data.json"
-OUT_JS = ROOT / "model" / "growth_model.data.js"
-OUT_COVERAGE = ROOT / "model" / "coverage_2024_enrichment.csv"
-ONTOLOGY = INPUTS / "ontology.json"
-RELIGIOUS_COHORTS = ROOT / "model" / "religious_cohorts_2024_2025.csv"
-RELIGIOUS_REPORT_NEW = INPUTS / "2025_religious_accounts_donation_volume_report.csv"
-RELIGIOUS_REPORT_OLD = INPUTS / "religious_accounts_donation_volume_report.csv"
+INPUTS = Path(os.environ.get("GROWTH_MODEL_INPUTS_DIR", ROOT / "_inputs" / "fru"))
+OUT = Path(os.environ.get("GROWTH_MODEL_OUT_JSON", ROOT / "model" / "growth_model.data.json"))
+OUT_JS = Path(os.environ.get("GROWTH_MODEL_OUT_JS", ROOT / "model" / "growth_model.data.js"))
+OUT_COVERAGE = Path(os.environ.get("GROWTH_MODEL_OUT_COVERAGE", ROOT / "model" / "coverage_2024_enrichment.csv"))
+ONTOLOGY = Path(os.environ.get("GROWTH_MODEL_ONTOLOGY", INPUTS / "ontology.json"))
+RELIGIOUS_COHORTS = Path(
+    os.environ.get("GROWTH_MODEL_RELIGIOUS_COHORTS", ROOT / "model" / "religious_cohorts_2024_2025.csv")
+)
+RELIGIOUS_REPORT_NEW = Path(
+    os.environ.get(
+        "GROWTH_MODEL_RELIGIOUS_REPORT_NEW",
+        INPUTS / "2025_religious_accounts_donation_volume_report.csv",
+    )
+)
+RELIGIOUS_REPORT_OLD = Path(
+    os.environ.get(
+        "GROWTH_MODEL_RELIGIOUS_REPORT_OLD",
+        INPUTS / "religious_accounts_donation_volume_report.csv",
+    )
+)
 RELIGIOUS_REPORT = RELIGIOUS_REPORT_NEW if RELIGIOUS_REPORT_NEW.exists() else RELIGIOUS_REPORT_OLD
 
 # External market benchmark (US individual charitable giving).
@@ -261,10 +274,17 @@ coverage["covered_total"] = (
     + coverage["covered_by_sector_domain"]
     + coverage["covered_by_sector_name"]
 )
-coverage["coverage_pct"] = round(coverage["covered_total"] / coverage["total_2024_accounts"] * 100.0, 2)
-coverage["ntee_coverage_pct"] = round(coverage["with_ntee_code"] / coverage["total_2024_accounts"] * 100.0, 2)
-coverage["fru_sector_coverage_pct"] = round(coverage["with_fru_sector"] / coverage["total_2024_accounts"] * 100.0, 2)
-coverage["fru_subsector_coverage_pct"] = round(coverage["with_fru_subsector"] / coverage["total_2024_accounts"] * 100.0, 2)
+coverage_base = coverage["total_2024_accounts"]
+if coverage_base > 0:
+    coverage["coverage_pct"] = round(coverage["covered_total"] / coverage_base * 100.0, 2)
+    coverage["ntee_coverage_pct"] = round(coverage["with_ntee_code"] / coverage_base * 100.0, 2)
+    coverage["fru_sector_coverage_pct"] = round(coverage["with_fru_sector"] / coverage_base * 100.0, 2)
+    coverage["fru_subsector_coverage_pct"] = round(coverage["with_fru_subsector"] / coverage_base * 100.0, 2)
+else:
+    coverage["coverage_pct"] = 0.0
+    coverage["ntee_coverage_pct"] = 0.0
+    coverage["fru_sector_coverage_pct"] = 0.0
+    coverage["fru_subsector_coverage_pct"] = 0.0
 
 # Ontology: execution surfaces
 surface_types = ["website", "donor_portal", "mobile_app", "virtual_terminal", "api"]

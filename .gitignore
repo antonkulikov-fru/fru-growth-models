@@ -22,6 +22,9 @@ venv/
 .env
 .env.*
 
+# Node
+node_modules/
+
 # metacoding: AI coding assistant exclusions
 .github/copilot-instructions.md
 .github/instructions/

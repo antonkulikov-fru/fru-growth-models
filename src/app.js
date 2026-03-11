@@ -1,0 +1,1158 @@
+import { fmt, fmtDeltaPp, fmtLogo, fmtM, fmtSharePct, pct } from "./model/formatters.js";
+import {
+  FAITH_SHARE_TARGET_2028,
+  clamp01,
+  formatPercentInputValue,
+  loadFaithShareOverridesFromStorage,
+  loadTargetOverridesFromStorage,
+  readFaithShareInputValue,
+  saveFaithShareOverridesToStorage,
+  saveTargetOverridesToStorage,
+} from "./model/overrides.js";
+import {
+  buildMixBaselines,
+  getFaithShareSplitByYear as resolveFaithShareSplitByYear,
+  getVerticalData as resolveVerticalData,
+  verticalDefinitionById,
+  verticalOptions,
+} from "./model/vertical.js";
+import { getCalibrationConfig } from "./model/targets.js";
+
+const data = window.GROWTH_MODEL_DATA;
+
+function byId(id) {
+  return document.getElementById(id);
+}
+
+const controls = {
+  t2026: byId("t2026"),
+  t2027: byId("t2027"),
+  t2028: byId("t2028"),
+  faithShare2026: byId("fshare2026"),
+  faithShare2027: byId("fshare2027"),
+  faithShare2028: byId("fshare2028"),
+  takeRate: byId("takeRate"),
+  ltMonths: byId("ltMonths"),
+  otRepeat: byId("otRepeat"),
+  existingExpansion: byId("existingExpansion"),
+  newRecShare: byId("newRecShare"),
+  cohortYear1Nrr: byId("cohortYear1Nrr"),
+  cohortYear2PlusNrr: byId("cohortYear2PlusNrr"),
+  targetMode: byId("targetMode"),
+  maxWhales: byId("maxWhales"),
+  logoMetric: byId("logoMetric"),
+  acqYear: byId("acqYear"),
+};
+
+const targetSplitLabels = {
+  2026: byId("t2026Split"),
+  2027: byId("t2027Split"),
+  2028: byId("t2028Split"),
+};
+
+const targetFaithShareRows = {
+  2026: byId("t2026FaithShareRow"),
+  2027: byId("t2027FaithShareRow"),
+  2028: byId("t2028FaithShareRow"),
+};
+
+let activeVertical = "all";
+let mixSharesById = {};
+let legacyBaselineById = {};
+let defaultWeightsById = {};
+let hasManualMixOverride = false;
+let targetsOverrideByYear = loadTargetOverridesFromStorage();
+let faithShareOverridesByYear = loadFaithShareOverridesFromStorage();
+
+function getFaithShareSplitByYear() {
+  return resolveFaithShareSplitByYear({
+    data,
+    faithShareOverridesByYear,
+    faithShareTarget2028: FAITH_SHARE_TARGET_2028,
+  });
+}
+
+function getVerticalData(verticalId) {
+  return resolveVerticalData(data, verticalId);
+}
+
+function updateMixBaselines(vertical) {
+  const next = buildMixBaselines(vertical);
+  defaultWeightsById = next.defaultWeightsById;
+  legacyBaselineById = next.legacyBaselineById;
+}
+
+function updateTargetSplitUi() {
+  const faithShareByYear = getFaithShareSplitByYear();
+  [2026, 2027, 2028].forEach((year) => {
+    const targetEl = targetSplitLabels[year];
+    const shareRow = targetFaithShareRows[year];
+    const shareInput = controls[`faithShare${year}`];
+    if (!targetEl || !shareRow || !shareInput) return;
+    shareRow.style.display = "flex";
+    const faithShare = clamp01(faithShareByYear[year]);
+    if (document.activeElement !== shareInput) {
+      shareInput.value = formatPercentInputValue(faithShare);
+    }
+    targetEl.style.display = "block";
+    const totalTargetM = Number(controls[`t${year}`].value || 0);
+    const ccShare = clamp01(1 - faithShare);
+    const faithTargetM = Math.max(0, totalTargetM * faithShare);
+    const ccTargetM = Math.max(0, totalTargetM - faithTargetM);
+    targetEl.textContent = `C&C ${fmtSharePct(ccShare)} (${fmt(ccTargetM)}M) / Faith ${fmtSharePct(faithShare)} (${fmt(faithTargetM)}M)`;
+  });
+}
+
+    function updateVerticalSwitchUi() {
+      Array.from(byId("verticalSwitch").querySelectorAll("button")).forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-vertical") === activeVertical);
+      });
+    }
+
+    function setActiveVertical(nextVerticalId) {
+      activeVertical = nextVerticalId;
+      const vertical = getVerticalData(activeVertical);
+      updateTargetSplitUi();
+      controls.existingExpansion.value = Number(vertical.legacyObservedKpis.implied_existing_account_expansion_rate ?? data.assumptions.existing_account_expansion_rate ?? 0.93);
+      mixSharesById = {};
+      hasManualMixOverride = false;
+      updateMixBaselines(vertical);
+      updateVerticalSwitchUi();
+      render();
+    }
+
+    function initVerticalSwitch() {
+      const container = byId("verticalSwitch");
+      container.innerHTML = verticalOptions
+        .map((v) => `<button type="button" data-vertical="${v.id}">${v.label}</button>`)
+        .join("");
+      Array.from(container.querySelectorAll("button")).forEach((btn) => {
+        btn.addEventListener("click", () => setActiveVertical(btn.getAttribute("data-vertical")));
+      });
+      updateVerticalSwitchUi();
+    }
+
+    function initControls() {
+      controls.takeRate.value = data.targets.take_rate;
+      controls.ltMonths.value = data.assumptions.recurring_donor_lifetime_months;
+      controls.otRepeat.value = data.assumptions.one_time_donor_year2_repeat_rate;
+      controls.newRecShare.value = data.assumptions.new_donor_year1_split.recurring;
+      controls.cohortYear1Nrr.value = Number(data.assumptions.cohort_year1_nrr ?? 1.8);
+      controls.cohortYear2PlusNrr.value = Number(data.assumptions.cohort_year2plus_nrr ?? 1.15);
+      controls.targetMode.value = "targets_imply_nrr";
+      controls.maxWhales.value = data.assumptions.max_new_whales_per_year ?? 2;
+      controls.logoMetric.value = "median";
+      controls.acqYear.value = "2026";
+      const allTargets = (getVerticalData("all").targetsGpvM || {});
+      controls.t2026.value = Number(targetsOverrideByYear["2026"] ?? allTargets["2026"] ?? 0);
+      controls.t2027.value = Number(targetsOverrideByYear["2027"] ?? allTargets["2027"] ?? 0);
+      controls.t2028.value = Number(targetsOverrideByYear["2028"] ?? allTargets["2028"] ?? 0);
+
+      const persistTargetOverrides = () => {
+        targetsOverrideByYear = {
+          "2026": Number(controls.t2026.value),
+          "2027": Number(controls.t2027.value),
+          "2028": Number(controls.t2028.value)
+        };
+        saveTargetOverridesToStorage(targetsOverrideByYear);
+      };
+      const persistFaithShareOverrides = () => {
+        const next = {};
+        [2026, 2027, 2028].forEach((year) => {
+          const parsed = readFaithShareInputValue(controls[`faithShare${year}`]);
+          if (parsed !== null) next[String(year)] = parsed;
+        });
+        faithShareOverridesByYear = next;
+        saveFaithShareOverridesToStorage(faithShareOverridesByYear);
+      };
+
+      [controls.t2026, controls.t2027, controls.t2028].forEach((el) => {
+        el.addEventListener("input", () => {
+          persistTargetOverrides();
+          updateTargetSplitUi();
+          render();
+        });
+        el.addEventListener("change", () => {
+          persistTargetOverrides();
+          updateTargetSplitUi();
+          render();
+        });
+      });
+      [controls.faithShare2026, controls.faithShare2027, controls.faithShare2028].forEach((el) => {
+        el.addEventListener("input", () => {
+          persistFaithShareOverrides();
+          updateTargetSplitUi();
+          render();
+        });
+        el.addEventListener("change", () => {
+          persistFaithShareOverrides();
+          updateTargetSplitUi();
+          render();
+        });
+      });
+
+      Object.values(controls).forEach((el) => {
+        if (el === controls.t2026 || el === controls.t2027 || el === controls.t2028) return;
+        if (el === controls.faithShare2026 || el === controls.faithShare2027 || el === controls.faithShare2028) return;
+        el.addEventListener("input", render);
+        el.addEventListener("change", render);
+      });
+
+      initVerticalSwitch();
+      setActiveVertical(activeVertical);
+    }
+
+    function computeModel() {
+      const vertical = getVerticalData(activeVertical);
+      const allVertical = getVerticalData("all");
+      const ccVertical = getVerticalData("cc");
+      const faithVertical = getVerticalData("faith");
+      const faithShareByYear = getFaithShareSplitByYear();
+      const hCohort = vertical.cohortAnchor2025 || {};
+      const hSplit = vertical.oneTimeRecurring || {};
+      const y2024Split = hSplit["2024"] || {};
+      const allTargets = {
+        2024: Number(allVertical.targetsGpvM["2024"] || 0),
+        2025: Number(allVertical.targetsGpvM["2025"] || 0),
+        2026: Number(controls.t2026.value),
+        2027: Number(controls.t2027.value),
+        2028: Number(controls.t2028.value)
+      };
+      const derivedTargetsByVertical = {
+        all: { ...allTargets },
+        cc: {
+          2024: Number(ccVertical.targetsGpvM["2024"] || 0),
+          2025: Number(ccVertical.targetsGpvM["2025"] || 0),
+          2026: Math.max(0, allTargets[2026] * (1 - clamp01(faithShareByYear[2026]))),
+          2027: Math.max(0, allTargets[2027] * (1 - clamp01(faithShareByYear[2027]))),
+          2028: Math.max(0, allTargets[2028] * (1 - clamp01(faithShareByYear[2028])))
+        },
+        faith: {
+          2024: Number(faithVertical.targetsGpvM["2024"] || 0),
+          2025: Number(faithVertical.targetsGpvM["2025"] || 0),
+          2026: Math.max(0, allTargets[2026] * clamp01(faithShareByYear[2026])),
+          2027: Math.max(0, allTargets[2027] * clamp01(faithShareByYear[2027])),
+          2028: Math.max(0, allTargets[2028] * clamp01(faithShareByYear[2028]))
+        }
+      };
+      const targets = derivedTargetsByVertical[activeVertical] || derivedTargetsByVertical.all;
+
+      const takeRate = Number(controls.takeRate.value);
+      const ltMonths = Number(controls.ltMonths.value);
+      const oneTimeRepeat = Number(controls.otRepeat.value);
+      const existingExpansion = Number(controls.existingExpansion.value);
+      const newRecurringShare = Number(controls.newRecShare.value);
+      const targetMode = controls.targetMode.value || "fixed_nrr_backsolve";
+      const baseCohortYear1Nrr = Math.max(0.01, Number(controls.cohortYear1Nrr.value) || 0.01);
+      const baseCohortYear2PlusNrr = Math.max(0.01, Number(controls.cohortYear2PlusNrr.value) || 0.01);
+      const maxWhales = Math.max(0, Number(controls.maxWhales.value) || 0);
+      const lt100kPerLogoOverride = Number(data.assumptions.lt_100k_year1_gpv_per_logo_override_m || 0.05);
+      const recurringCarry = Math.pow(1 - 1 / ltMonths, 12);
+
+      const legacy2024 = (Number(y2024Split.one_time || 0) + Number(y2024Split.recurring || 0)) / 1_000_000;
+      const legacy2025 = Number(hCohort.legacy_contribution || 0) / 1_000_000;
+      const observedNrrKpi = Number((vertical.legacyObservedKpis || {}).nrr_2024_to_2025);
+      const observedNrr = Number.isFinite(observedNrrKpi) && observedNrrKpi > 0
+        ? observedNrrKpi
+        : (legacy2024 > 0 ? legacy2025 / legacy2024 : 0);
+      const observedY1Y2Ratio = observedNrr > 0 ? 1 / observedNrr : 0;
+
+      const cohorts = [
+        { id: "legacy_2024", label: "Legacy (2024 base)", startYear: 2024 },
+        { id: "cohort_2025", label: "2025", startYear: 2025 },
+        { id: "cohort_2026", label: "2026", startYear: 2026 },
+        { id: "cohort_2027", label: "2027", startYear: 2027 },
+        { id: "cohort_2028", label: "2028", startYear: 2028 }
+      ];
+      const years = [2024, 2025, 2026, 2027, 2028];
+      const splitStart = (total, recurringShare = newRecurringShare) => ({
+        oneTime: total * (1 - recurringShare),
+        recurring: total * recurringShare,
+        total
+      });
+
+      const buildProjection = (year1Nrr, year2PlusNrr) => {
+        const state = {};
+        cohorts.forEach((c) => {
+          state[c.id] = {};
+          years.forEach((y) => {
+            state[c.id][y] = { oneTime: 0, recurring: 0, total: 0 };
+          });
+        });
+
+        state.legacy_2024[2024].oneTime = Number(y2024Split.one_time || 0) / 1_000_000;
+        state.legacy_2024[2024].recurring = Number(y2024Split.recurring || 0) / 1_000_000;
+        state.legacy_2024[2024].total = state.legacy_2024[2024].oneTime + state.legacy_2024[2024].recurring;
+
+        state.legacy_2024[2025].oneTime = Number(hCohort.legacy_one_time || 0) / 1_000_000;
+        state.legacy_2024[2025].recurring = Number(hCohort.legacy_recurring || 0) / 1_000_000;
+        state.legacy_2024[2025].total = state.legacy_2024[2025].oneTime + state.legacy_2024[2025].recurring;
+
+        const new2025RawTotal = Number(hCohort.new_2025_contribution || 0) / 1_000_000;
+        const new2025RecShare = new2025RawTotal > 0 ? (Number(hCohort.new_recurring || 0) / 1_000_000) / new2025RawTotal : newRecurringShare;
+        const new2025TargetTotal = Math.max(0, targets[2025] - state.legacy_2024[2025].total);
+        state.cohort_2025[2025].recurring = new2025TargetTotal * new2025RecShare;
+        state.cohort_2025[2025].oneTime = new2025TargetTotal * (1 - new2025RecShare);
+        state.cohort_2025[2025].total = new2025TargetTotal;
+
+        const perYear = {
+          2024: { target: targets[2024], modeled: targets[2024], newCohort: 0, existing: targets[2024] },
+          2025: { target: targets[2025], modeled: targets[2025], newCohort: new2025TargetTotal, existing: state.legacy_2024[2025].total },
+          2026: { target: targets[2026], modeled: 0, newCohort: 0, existing: 0 },
+          2027: { target: targets[2027], modeled: 0, newCohort: 0, existing: 0 },
+          2028: { target: targets[2028], modeled: 0, newCohort: 0, existing: 0 }
+        };
+
+        const projectNextYear = (prev, firstTransition) => {
+          const oneCarry = prev.oneTime * oneTimeRepeat;
+          const recCarry = prev.recurring * recurringCarry;
+          const expansion = prev.total * existingExpansion;
+          let oneTime = oneCarry + (expansion * (1 - newRecurringShare));
+          let recurring = recCarry + (expansion * newRecurringShare);
+          const baseTotal = oneTime + recurring;
+          const transitionTargetNrr = firstTransition ? year1Nrr : year2PlusNrr;
+          if (prev.total > 0 && baseTotal > 0 && transitionTargetNrr > 0) {
+            const adjust = (prev.total * transitionTargetNrr) / baseTotal;
+            oneTime *= adjust;
+            recurring *= adjust;
+          }
+          return { oneTime, recurring, total: oneTime + recurring };
+        };
+
+        state.legacy_2024[2026] = projectNextYear(state.legacy_2024[2025], false);
+        state.legacy_2024[2027] = projectNextYear(state.legacy_2024[2026], false);
+        state.legacy_2024[2028] = projectNextYear(state.legacy_2024[2027], false);
+
+        state.cohort_2025[2026] = projectNextYear(state.cohort_2025[2025], true);
+        state.cohort_2025[2027] = projectNextYear(state.cohort_2025[2026], false);
+        state.cohort_2025[2028] = projectNextYear(state.cohort_2025[2027], false);
+
+        const legacyExisting2026 = state.legacy_2024[2026].total + state.cohort_2025[2026].total;
+        const legacyExisting2027 = state.legacy_2024[2027].total + state.cohort_2025[2027].total;
+        const legacyExisting2028 = state.legacy_2024[2028].total + state.cohort_2025[2028].total;
+
+        const initialNew2026 = Math.max(0, targets[2026] - legacyExisting2026);
+        const initialExisting2027 = legacyExisting2027 + (initialNew2026 * year1Nrr);
+        const initialNew2027 = Math.max(0, targets[2027] - initialExisting2027);
+        const baselineRatio27to26 = (initialNew2026 > 0 || initialNew2027 > 0)
+          ? (initialNew2027 / Math.max(0.000001, initialNew2026 || 0.000001))
+          : 1;
+
+        const needFrom2026And2027In2028 = targets[2028] - legacyExisting2028;
+        const coeff26To2028 = year1Nrr * year2PlusNrr;
+        const coeff27To2028 = year1Nrr;
+        const solveDenom = coeff26To2028 + (baselineRatio27to26 * coeff27To2028);
+        let new2026Total = 0;
+        let new2027Total = 0;
+        if (needFrom2026And2027In2028 > 0 && solveDenom > 0) {
+          new2026Total = needFrom2026And2027In2028 / solveDenom;
+          new2027Total = new2026Total * baselineRatio27to26;
+        }
+        new2026Total = Math.max(0, new2026Total);
+        new2027Total = Math.max(0, new2027Total);
+
+        state.cohort_2026[2026] = splitStart(new2026Total);
+        state.cohort_2026[2027] = projectNextYear(state.cohort_2026[2026], true);
+        state.cohort_2026[2028] = projectNextYear(state.cohort_2026[2027], false);
+
+        state.cohort_2027[2027] = splitStart(new2027Total);
+        state.cohort_2027[2028] = projectNextYear(state.cohort_2027[2027], true);
+
+        const existing2026 = legacyExisting2026;
+        const modeled2026 = existing2026 + state.cohort_2026[2026].total;
+        perYear[2026] = {
+          target: targets[2026],
+          modeled: modeled2026,
+          newCohort: state.cohort_2026[2026].total,
+          existing: existing2026,
+          gap: modeled2026 - targets[2026]
+        };
+
+        const existing2027 = legacyExisting2027 + state.cohort_2026[2027].total;
+        const modeled2027 = existing2027 + state.cohort_2027[2027].total;
+        perYear[2027] = {
+          target: targets[2027],
+          modeled: modeled2027,
+          newCohort: state.cohort_2027[2027].total,
+          existing: existing2027,
+          gap: modeled2027 - targets[2027]
+        };
+
+        const existing2028 = legacyExisting2028 + state.cohort_2026[2028].total + state.cohort_2027[2028].total;
+        const new2028Total = Math.max(0, targets[2028] - existing2028);
+        state.cohort_2028[2028] = splitStart(new2028Total);
+        const modeled2028 = existing2028 + state.cohort_2028[2028].total;
+        perYear[2028] = {
+          target: targets[2028],
+          modeled: modeled2028,
+          newCohort: state.cohort_2028[2028].total,
+          existing: existing2028,
+          gap: modeled2028 - targets[2028]
+        };
+
+        return { state, perYear };
+      };
+
+      const clampNrr = (v) => Math.min(5, Math.max(0.01, Number(v) || 0.01));
+      const solveNrrFromTargets = (seedYear1, seedYear2) => {
+        const calibration = getCalibrationConfig(targets);
+        if (!calibration.useAny) {
+          const year1 = clampNrr(seedYear1);
+          const year2 = clampNrr(seedYear2);
+          return {
+            year1,
+            year2,
+            residual: 0,
+            projection: buildProjection(year1, year2),
+          };
+        }
+
+        const evaluate = (year1, year2) => {
+          const projection = buildProjection(year1, year2);
+          const e26 = calibration.use2026
+            ? (projection.perYear[2026].modeled - calibration.target2026) / calibration.scale2026
+            : 0;
+          const e27 = calibration.use2027
+            ? (projection.perYear[2027].modeled - calibration.target2027) / calibration.scale2027
+            : 0;
+          const regularization = 0.0001 * (
+            Math.pow(year1 - seedYear1, 2) +
+            Math.pow(year2 - seedYear2, 2)
+          );
+          return {
+            score: (e26 * e26) + (e27 * e27) + regularization,
+            projection
+          };
+        };
+
+        let bestYear1 = clampNrr(seedYear1);
+        let bestYear2 = clampNrr(seedYear2);
+        let bestEval = evaluate(bestYear1, bestYear2);
+
+        for (let y1 = 0.2; y1 <= 4.0001; y1 += 0.2) {
+          for (let y2 = 0.2; y2 <= 4.0001; y2 += 0.2) {
+            const candidate = evaluate(y1, y2);
+            if (candidate.score + 1e-12 < bestEval.score) {
+              bestEval = candidate;
+              bestYear1 = y1;
+              bestYear2 = y2;
+            }
+          }
+        }
+
+        const steps = [0.5, 0.25, 0.1, 0.05, 0.02, 0.01];
+        steps.forEach((step) => {
+          let improved = true;
+          while (improved) {
+            improved = false;
+            const candidates = [
+              [bestYear1 + step, bestYear2],
+              [bestYear1 - step, bestYear2],
+              [bestYear1, bestYear2 + step],
+              [bestYear1, bestYear2 - step],
+              [bestYear1 + step, bestYear2 + step],
+              [bestYear1 + step, bestYear2 - step],
+              [bestYear1 - step, bestYear2 + step],
+              [bestYear1 - step, bestYear2 - step]
+            ];
+            candidates.forEach(([rawYear1, rawYear2]) => {
+              const year1 = clampNrr(rawYear1);
+              const year2 = clampNrr(rawYear2);
+              const candidate = evaluate(year1, year2);
+              if (candidate.score + 1e-12 < bestEval.score) {
+                bestEval = candidate;
+                bestYear1 = year1;
+                bestYear2 = year2;
+                improved = true;
+              }
+            });
+          }
+        });
+
+        return {
+          year1: bestYear1,
+          year2: bestYear2,
+          residual: Math.sqrt(Math.max(0, bestEval.score)),
+          projection: bestEval.projection
+        };
+      };
+
+      let cohortYear1Nrr = baseCohortYear1Nrr;
+      let cohortYear2PlusNrr = baseCohortYear2PlusNrr;
+      let nrrSolveResidual = 0;
+      let projection = buildProjection(cohortYear1Nrr, cohortYear2PlusNrr);
+      if (targetMode === "targets_imply_nrr") {
+        const solved = solveNrrFromTargets(baseCohortYear1Nrr, baseCohortYear2PlusNrr);
+        cohortYear1Nrr = solved.year1;
+        cohortYear2PlusNrr = solved.year2;
+        nrrSolveResidual = solved.residual;
+        projection = solved.projection;
+      }
+      const state = projection.state;
+      const perYear = projection.perYear;
+
+      const bracketDist = vertical.newAccountsDistribution2025 || [];
+      const allDist = vertical.distribution2025 || [];
+      const newDistById = {};
+      bracketDist.forEach((b) => { newDistById[b.id] = b; });
+      const allDistById = {};
+      allDist.forEach((b) => { allDistById[b.id] = b; });
+
+      let legacyTotalGpv = 0;
+      allDist.forEach((b) => {
+        const n = newDistById[b.id] || { gpv_total: 0 };
+        const legacyGpv = Math.max(0, Number(b.gpv_total || 0) - Number(n.gpv_total || 0));
+        legacyTotalGpv += legacyGpv;
+      });
+
+      let newTotalGpv = 0;
+      bracketDist.forEach((b) => { newTotalGpv += Number(b.gpv_total || 0); });
+
+      const weightedAllocate = (receiverIds, amountPct) => {
+        const out = {};
+        const ids = receiverIds.slice();
+        const wSum = ids.reduce((s, id) => s + Math.max(0, Number(defaultWeightsById[id] || 0)), 0);
+        if (wSum > 0) {
+          ids.forEach((id) => {
+            out[id] = amountPct * (Math.max(0, Number(defaultWeightsById[id] || 0)) / wSum);
+          });
+        } else {
+          const n = Math.max(1, ids.length);
+          ids.forEach((id) => { out[id] = amountPct / n; });
+        }
+        return out;
+      };
+
+      const bracketIds = bracketDist.map((b) => b.id);
+      const enteredSharesPctById = {};
+      if (hasManualMixOverride) {
+        const manual = {};
+        bracketIds.forEach((id) => {
+          if (id in mixSharesById) manual[id] = Math.max(0, Number(mixSharesById[id] || 0));
+        });
+        let manualSum = Object.values(manual).reduce((a, b) => a + b, 0);
+        if (manualSum > 100 && manualSum > 0) {
+          const scale = 100 / manualSum;
+          Object.keys(manual).forEach((id) => { manual[id] *= scale; });
+          manualSum = 100;
+        }
+
+        bracketIds.forEach((id) => { enteredSharesPctById[id] = 0; });
+        Object.keys(manual).forEach((id) => { enteredSharesPctById[id] = manual[id]; });
+
+        const freeIds = bracketIds.filter((id) => !(id in manual));
+        const remainingPct = Math.max(0, 100 - manualSum);
+        if (freeIds.length > 0 && remainingPct > 0) {
+          const allocated = weightedAllocate(freeIds, remainingPct);
+          freeIds.forEach((id) => { enteredSharesPctById[id] = Math.max(0, Number(allocated[id] || 0)); });
+        }
+      } else {
+        const rawShares = {};
+        bracketDist.forEach((b) => {
+          rawShares[b.id] = Math.max(0, Number(legacyBaselineById[b.id] ?? 0));
+        });
+        const rawSum = Object.values(rawShares).reduce((a, b) => a + b, 0);
+        bracketDist.forEach((b) => {
+          const normalized = rawSum > 0 ? rawShares[b.id] / rawSum : 0;
+          enteredSharesPctById[b.id] = normalized * 100;
+        });
+      }
+
+      const acq = [];
+      const whaleWarnings = {};
+      [2026, 2027, 2028].forEach((y) => {
+        const newCohort = perYear[y].newCohort;
+        const yearRows = bracketDist.map((b) => {
+          const intentShare = Math.max(0, Number(enteredSharesPctById[b.id] || 0)) / 100;
+          const intentGpv = newCohort * intentShare;
+          let perLogo = (controls.logoMetric.value === "avg" ? b.avg_year1_gpv : b.median_year1_gpv) / 1_000_000;
+          if (perLogo <= 0) {
+            const allBucket = allDistById[b.id];
+            const allCount = Number((allBucket || {}).account_count || 0);
+            const allGpv = Number((allBucket || {}).gpv_total || 0);
+            perLogo = allCount > 0 ? (allGpv / allCount) / 1_000_000 : 0;
+          }
+          if (b.id === "lt_100k") {
+            perLogo = lt100kPerLogoOverride;
+          }
+          return {
+            year: y,
+            bracket: b.label,
+            bracketId: b.id,
+            intentShare,
+            intentGpv,
+            feasibleGpv: intentGpv,
+            perLogo,
+            requiredLogosExact: 0,
+            feasibleLogosExact: 0,
+            impliedLogos: 0
+          };
+        });
+
+        const whaleRow = yearRows.find((r) => r.bracketId === "10m_plus");
+        let whaleWarning = null;
+        if (whaleRow && whaleRow.perLogo > 0) {
+          whaleRow.impliedLogos = whaleRow.intentGpv / whaleRow.perLogo;
+          whaleWarning = {
+            year: y,
+            impliedLogos: whaleRow.impliedLogos,
+            cap: maxWhales,
+            overflowGpv: 0
+          };
+          const whaleCapGpv = Math.max(0, maxWhales) * whaleRow.perLogo;
+          if (whaleRow.feasibleGpv > whaleCapGpv) {
+            const overflow = whaleRow.feasibleGpv - whaleCapGpv;
+            whaleRow.feasibleGpv = whaleCapGpv;
+            whaleWarning.overflowGpv = overflow;
+
+            const receiverIds = yearRows.filter((r) => r.bracketId !== "10m_plus").map((r) => r.bracketId);
+            const allocShares = weightedAllocate(receiverIds, 100);
+            yearRows.forEach((r) => {
+              if (r.bracketId === "10m_plus") return;
+              const w = Math.max(0, Number(allocShares[r.bracketId] || 0)) / 100;
+              r.feasibleGpv += overflow * w;
+            });
+          }
+        }
+        whaleWarnings[y] = whaleWarning;
+
+        yearRows.forEach((r) => {
+          r.requiredLogosExact = r.perLogo > 0 ? r.intentGpv / r.perLogo : 0;
+          r.feasibleLogosExact = r.perLogo > 0 ? r.feasibleGpv / r.perLogo : 0;
+          if (!hasManualMixOverride) {
+            r.requiredLogosExact = r.feasibleLogosExact;
+            r.intentGpv = r.feasibleGpv;
+          }
+          acq.push(r);
+        });
+      });
+
+      const historicalAcq = { legacy2024: [], "2025": [] };
+      bracketDist.forEach((b) => {
+        const allBucket = allDistById[b.id] || {};
+        const newBucket = newDistById[b.id] || {};
+        const legacyGpv = Math.max(0, Number(allBucket.gpv_total || 0) - Number(newBucket.gpv_total || 0));
+        const legacyCount = Math.max(0, Number(allBucket.account_count || 0) - Number(newBucket.account_count || 0));
+        const legacyPerLogo = legacyCount > 0 ? (legacyGpv / legacyCount) / 1_000_000 : 0;
+        const legacyShare = legacyTotalGpv > 0 ? legacyGpv / legacyTotalGpv : 0;
+
+        const newGpv = Number(newBucket.gpv_total || 0);
+        const newCount = Number(newBucket.account_count || 0);
+        let newPerLogo = (controls.logoMetric.value === "avg" ? Number(newBucket.avg_year1_gpv || 0) : Number(newBucket.median_year1_gpv || 0)) / 1_000_000;
+        if (newPerLogo <= 0 && newCount > 0) {
+          newPerLogo = (newGpv / newCount) / 1_000_000;
+        }
+        const legacyPerLogoFinal = b.id === "lt_100k" ? lt100kPerLogoOverride : legacyPerLogo;
+        const newPerLogoFinal = b.id === "lt_100k" ? lt100kPerLogoOverride : newPerLogo;
+        const newShare = newTotalGpv > 0 ? newGpv / newTotalGpv : 0;
+
+        historicalAcq.legacy2024.push({
+          bracket: b.label,
+          bracketId: b.id,
+          share: legacyShare,
+          accountsN: legacyCount,
+          gpvM: legacyGpv / 1_000_000,
+          perLogoM: legacyPerLogoFinal,
+          constraint: "-"
+        });
+
+        historicalAcq["2025"].push({
+          bracket: b.label,
+          bracketId: b.id,
+          share: newShare,
+          accountsN: newCount,
+          gpvM: newGpv / 1_000_000,
+          perLogoM: newPerLogoFinal,
+          constraint: "-"
+        });
+      });
+
+      const marketCfg = ((data.market || {}).personal_giving) || {};
+      const marketRawYears = marketCfg.years || {};
+      const marketGrowth = Number(marketCfg.assumed_nominal_growth_rate || 0.05);
+      const marketSegments = marketCfg.segments || {};
+      const marketChannels = marketCfg.channels || {};
+      const modelYears = [2024, 2025, 2026, 2027, 2028];
+      const nowYear = new Date().getUTCFullYear();
+
+      const targetsByVertical = {
+        all: { ...derivedTargetsByVertical.all },
+        cc: { ...derivedTargetsByVertical.cc },
+        faith: { ...derivedTargetsByVertical.faith }
+      };
+      const splitByYear = {};
+      modelYears.forEach((y) => {
+        const allTarget = Number(targetsByVertical.all[y] || 0);
+        const ccTarget = Number(targetsByVertical.cc[y] || 0);
+        const faithTarget = Number(targetsByVertical.faith[y] || 0);
+        const fallbackFaithShare = y >= 2026 ? clamp01(faithShareByYear[y]) : 0;
+        const faithShare = allTarget > 0 ? clamp01(faithTarget / allTarget) : fallbackFaithShare;
+        const ccShare = allTarget > 0 ? clamp01(ccTarget / allTarget) : clamp01(1 - faithShare);
+        splitByYear[y] = {
+          ccShare,
+          faithShare,
+          ccTargetM: ccTarget,
+          faithTargetM: faithTarget
+        };
+      });
+
+      const marketYears = {};
+      let prevMarket = Number(((marketRawYears["2024"] || {}).market_size_usd || 392_450_000_000));
+
+      modelYears.forEach((y, idx) => {
+        const key = String(y);
+        const row = marketRawYears[key] || {};
+        let marketSizeUsd = Number(row.market_size_usd || 0);
+        if (!(marketSizeUsd > 0)) {
+          marketSizeUsd = idx === 0 ? prevMarket : (prevMarket * (1 + marketGrowth));
+        }
+        marketYears[y] = {
+          state: row.state || (y < nowYear ? "past" : (y === nowYear ? "present" : "future")),
+          marketSizeUsd,
+          isActual: row.is_actual === true
+        };
+        prevMarket = marketSizeUsd;
+      });
+
+      const defaultFaithShare = Number(((((marketSegments.faith || {}).years || {})["2024"] || {}).share_of_total ?? 0.2473));
+      const segmentYears = { faith: {}, cc: {} };
+      modelYears.forEach((y) => {
+        const totalMarketUsd = Number((marketYears[y] || {}).marketSizeUsd || 0);
+        const key = String(y);
+        const faithRow = (((marketSegments.faith || {}).years || {})[key]) || {};
+        const ccRow = (((marketSegments.cc || {}).years || {})[key]) || {};
+
+        let faithShare = Number(faithRow.share_of_total);
+        if (!(faithShare >= 0 && faithShare <= 1)) {
+          const ccShare = Number(ccRow.share_of_total);
+          faithShare = (ccShare >= 0 && ccShare <= 1) ? (1 - ccShare) : defaultFaithShare;
+        }
+        faithShare = Math.min(1, Math.max(0, faithShare));
+
+        let faithMarketUsd = Number(faithRow.market_size_usd || 0);
+        let ccMarketUsd = Number(ccRow.market_size_usd || 0);
+        if (!(faithMarketUsd > 0)) {
+          faithMarketUsd = totalMarketUsd * faithShare;
+        }
+        if (!(ccMarketUsd > 0)) {
+          ccMarketUsd = Math.max(0, totalMarketUsd - faithMarketUsd);
+        }
+        const combined = faithMarketUsd + ccMarketUsd;
+        if (combined > 0 && totalMarketUsd > 0 && Math.abs(combined - totalMarketUsd) > 1) {
+          const scale = totalMarketUsd / combined;
+          faithMarketUsd *= scale;
+          ccMarketUsd *= scale;
+        }
+
+        segmentYears.faith[y] = {
+          marketSizeUsd: faithMarketUsd,
+          shareOfTotal: totalMarketUsd > 0 ? (faithMarketUsd / totalMarketUsd) : faithShare
+        };
+        segmentYears.cc[y] = {
+          marketSizeUsd: ccMarketUsd,
+          shareOfTotal: totalMarketUsd > 0 ? (ccMarketUsd / totalMarketUsd) : (1 - faithShare)
+        };
+      });
+
+      const defaultOnlineShare = Number(((((marketChannels.online || {}).years || {})["2024"] || {}).share_of_total ?? 0.1204));
+      const channelYears = { online: {}, offline: {} };
+      modelYears.forEach((y) => {
+        const totalMarketUsd = Number((marketYears[y] || {}).marketSizeUsd || 0);
+        const key = String(y);
+        const onlineRow = (((marketChannels.online || {}).years || {})[key]) || {};
+        const offlineRow = (((marketChannels.offline || {}).years || {})[key]) || {};
+
+        let onlineShare = Number(onlineRow.share_of_total);
+        let offlineShare = Number(offlineRow.share_of_total);
+        if (!(onlineShare >= 0 && onlineShare <= 1)) {
+          onlineShare = (offlineShare >= 0 && offlineShare <= 1) ? (1 - offlineShare) : defaultOnlineShare;
+        }
+        onlineShare = Math.min(1, Math.max(0, onlineShare));
+        if (!(offlineShare >= 0 && offlineShare <= 1)) {
+          offlineShare = 1 - onlineShare;
+        }
+        offlineShare = Math.min(1, Math.max(0, offlineShare));
+        const shareSum = onlineShare + offlineShare;
+        if (shareSum > 0) {
+          onlineShare = onlineShare / shareSum;
+          offlineShare = offlineShare / shareSum;
+        } else {
+          onlineShare = defaultOnlineShare;
+          offlineShare = 1 - defaultOnlineShare;
+        }
+
+        let onlineMarketUsd = Number(onlineRow.market_size_usd || 0);
+        let offlineMarketUsd = Number(offlineRow.market_size_usd || 0);
+        if (!(onlineMarketUsd > 0)) onlineMarketUsd = totalMarketUsd * onlineShare;
+        if (!(offlineMarketUsd > 0)) offlineMarketUsd = totalMarketUsd * offlineShare;
+
+        channelYears.online[y] = {
+          shareOfTotal: totalMarketUsd > 0 ? onlineMarketUsd / totalMarketUsd : onlineShare,
+          marketSizeUsd: onlineMarketUsd,
+          evidence: String(onlineRow.evidence || (y === 2024 ? "inferred" : "projected"))
+        };
+        channelYears.offline[y] = {
+          shareOfTotal: totalMarketUsd > 0 ? offlineMarketUsd / totalMarketUsd : offlineShare,
+          marketSizeUsd: offlineMarketUsd,
+          evidence: String(offlineRow.evidence || (y === 2024 ? "inferred" : "projected"))
+        };
+      });
+
+      const shareByVertical = { all: {}, cc: {}, faith: {} };
+      const onlineMarketByVertical = { all: {}, cc: {}, faith: {} };
+      const onlineShareByVertical = { all: {}, cc: {}, faith: {} };
+      modelYears.forEach((y) => {
+        const allMarketUsd = Number((marketYears[y] || {}).marketSizeUsd || 0);
+        const ccMarketUsd = Number((((segmentYears.cc || {})[y] || {}).marketSizeUsd) || 0);
+        const faithMarketUsd = Number((((segmentYears.faith || {})[y] || {}).marketSizeUsd) || 0);
+        const onlineShareOfTotal = Number(((((channelYears.online || {})[y] || {}).shareOfTotal) || 0));
+        const allOnlineMarketUsd = allMarketUsd * onlineShareOfTotal;
+        const ccOnlineMarketUsd = ccMarketUsd * onlineShareOfTotal;
+        const faithOnlineMarketUsd = faithMarketUsd * onlineShareOfTotal;
+
+        onlineMarketByVertical.all[y] = allOnlineMarketUsd;
+        onlineMarketByVertical.cc[y] = ccOnlineMarketUsd;
+        onlineMarketByVertical.faith[y] = faithOnlineMarketUsd;
+
+        shareByVertical.all[y] = allMarketUsd > 0 ? (Number(targetsByVertical.all[y] || 0) * 1_000_000) / allMarketUsd : 0;
+        shareByVertical.cc[y] = ccMarketUsd > 0 ? (Number(targetsByVertical.cc[y] || 0) * 1_000_000) / ccMarketUsd : 0;
+        shareByVertical.faith[y] = faithMarketUsd > 0 ? (Number(targetsByVertical.faith[y] || 0) * 1_000_000) / faithMarketUsd : 0;
+
+        onlineShareByVertical.all[y] = allOnlineMarketUsd > 0 ? (Number(targetsByVertical.all[y] || 0) * 1_000_000) / allOnlineMarketUsd : 0;
+        onlineShareByVertical.cc[y] = ccOnlineMarketUsd > 0 ? (Number(targetsByVertical.cc[y] || 0) * 1_000_000) / ccOnlineMarketUsd : 0;
+        onlineShareByVertical.faith[y] = faithOnlineMarketUsd > 0 ? (Number(targetsByVertical.faith[y] || 0) * 1_000_000) / faithOnlineMarketUsd : 0;
+      });
+      const baseShareByVertical = {
+        all: Number((shareByVertical.all || {})[2024] || 0),
+        cc: Number((shareByVertical.cc || {})[2024] || 0),
+        faith: Number((shareByVertical.faith || {})[2024] || 0)
+      };
+      const baseOnlineShareByVertical = {
+        all: Number((onlineShareByVertical.all || {})[2024] || 0),
+        cc: Number((onlineShareByVertical.cc || {})[2024] || 0),
+        faith: Number((onlineShareByVertical.faith || {})[2024] || 0)
+      };
+
+      return {
+        verticalId: activeVertical,
+        verticalLabel: vertical.label,
+        verticalDefinition: verticalDefinitionById[activeVertical] || "",
+        targetMode,
+        nrrSolveResidual,
+        targets,
+        takeRate,
+        ltMonths,
+        recurringCarry,
+        oneTimeRepeat,
+        existingExpansion,
+        cohortYear1Nrr,
+        cohortYear2PlusNrr,
+        newRecurringShare,
+        maxWhales,
+        cohorts,
+        years,
+        state,
+        perYear,
+        acq,
+        whaleWarnings,
+        historicalAcq,
+        shareSum: hasManualMixOverride
+          ? Object.values(mixSharesById).reduce((a, b) => a + Math.max(0, Number(b || 0)), 0)
+          : 100,
+        enteredSharesPctById,
+        hasManualMixOverride,
+        observedNrr,
+        observedY1Y2Ratio,
+        lt100kPerLogoOverride,
+        market: {
+          label: marketCfg.name || "US personal charitable giving (individuals)",
+          projectionMethod: marketCfg.projection_method || "",
+          splitMethod: marketCfg.split_method || "",
+          channelSplitMethod: marketCfg.channel_split_method || "",
+          assumedNominalGrowthRate: marketGrowth,
+          sources: marketCfg.sources || [],
+          years: marketYears,
+          segments: {
+            faith: {
+              label: (((marketSegments.faith || {}).name) || "Religious market"),
+              years: segmentYears.faith
+            },
+            cc: {
+              label: (((marketSegments.cc || {}).name) || "Cause & Cure market (non-religious)"),
+              years: segmentYears.cc
+            }
+          },
+          channels: {
+            online: {
+              label: ((marketChannels.online || {}).name) || "Online",
+              years: channelYears.online
+            },
+            offline: {
+              label: ((marketChannels.offline || {}).name) || "Offline",
+              years: channelYears.offline
+            }
+          },
+          targetsByVertical,
+          shareByVertical,
+          baseShareByVertical,
+          onlineMarketByVertical,
+          onlineShareByVertical,
+          baseOnlineShareByVertical,
+          splitByYear
+        }
+      };
+    }
+
+    function renderCohorts(m) {
+      const t = byId("cohortTable");
+      let html = "<thead><tr><th>Cohort / Year</th><th>2024</th><th class=\"yoy-head\">YoY</th><th>2025</th><th class=\"yoy-head\">YoY</th><th>2026</th><th class=\"yoy-head\">YoY</th><th>2027</th><th class=\"yoy-head\">YoY</th><th>2028</th></tr></thead><tbody>";
+
+      const rowCells = (valuesByYear, startYear, strong = false, showYoy = true) => {
+        let cells = "";
+
+        const valueCell = (v) => strong ? `<td><strong>${fmtM(v)}</strong></td>` : `<td>${fmtM(v)}</td>`;
+        const yoyCell = (curr, prev, hasCurr, hasPrev) => {
+          if (!hasCurr || !hasPrev || prev <= 0) {
+            return "<td class=\"blank yoy-cell\">-</td>";
+          }
+          const y = (curr / prev) - 1;
+          return strong ? `<td class=\"yoy-cell\"><strong>${pct(y)}</strong></td>` : `<td class=\"yoy-cell\">${pct(y)}</td>`;
+        };
+
+        const y2024 = 2024;
+        const has2024 = y2024 >= startYear;
+        const v2024 = valuesByYear[y2024] || 0;
+        cells += has2024 ? valueCell(v2024) : "<td class=\"blank\">-</td>";
+
+        const pairs = [
+          [2024, 2025],
+          [2025, 2026],
+          [2026, 2027],
+          [2027, 2028]
+        ];
+
+        for (const [py, y] of pairs) {
+          const hasY = y >= startYear;
+          const hasPY = py >= startYear;
+          const vY = valuesByYear[y] || 0;
+          const vPY = valuesByYear[py] || 0;
+          cells += showYoy ? yoyCell(vY, vPY, hasY, hasPY) : "<td class=\"blank yoy-cell\">-</td>";
+          cells += hasY ? valueCell(vY) : "<td class=\"blank\">-</td>";
+        }
+        return cells;
+      };
+
+      m.cohorts.forEach((c) => {
+        const values = {};
+        m.years.forEach((y) => { values[y] = m.state[c.id][y].total || 0; });
+        html += `<tr><td>${c.label}</td>${rowCells(values, c.startYear)}</tr>`;
+      });
+
+      const totalValues = {};
+      m.years.forEach((y) => { totalValues[y] = m.perYear[y].modeled || 0; });
+      html += `<tr><td><strong>Total</strong></td>${rowCells(totalValues, 2024, true)}</tr>`;
+
+      const arrValues = {};
+      m.years.forEach((y) => { arrValues[y] = (m.perYear[y].modeled || 0) * m.takeRate; });
+      html += `<tr><td><strong>ARR (@take rate)</strong></td>${rowCells(arrValues, 2024, true, false)}</tr>`;
+
+      html += "</tbody>";
+      t.innerHTML = html;
+    }
+
+    function renderMarket(m) {
+      const t = byId("marketTable");
+      if (!t) return;
+
+      const years = [2024, 2025, 2026, 2027, 2028];
+      const activeKey = m.verticalId === "all" ? "all" : (m.verticalId === "faith" ? "faith" : "cc");
+      const activeLabel = m.verticalLabel;
+      const activeMarketLabel = activeKey === "all"
+        ? "All Market"
+        : (activeKey === "cc" ? "C&C Market" : "Faith Market");
+      let html = "<thead><tr>"
+        + "<th>Year</th>"
+        + "<th>State</th>"
+        + "<th>All Mkt ($B)</th>"
+        + "<th>Online / Offline</th>"
+        + `<th>${activeMarketLabel} ($B)</th>`
+        + "<th>Mkt YoY</th>"
+        + `<th class="market-active">FRU ${activeLabel} Tgt ($B)</th>`
+        + `<th class="market-active">FRU ${activeLabel} Share (Online)</th>`
+        + "<th>Delta vs 2024 (pp)</th>"
+        + "<th>Online Share Snapshot</th>"
+        + "</tr></thead><tbody>";
+
+      years.forEach((y) => {
+        const marketRow = (m.market.years || {})[y] || {};
+        const allMarketUsd = Number(marketRow.marketSizeUsd || 0);
+        const activeMarketUsd = activeKey === "all"
+          ? allMarketUsd
+          : Number((((((m.market.segments || {})[activeKey] || {}).years || {})[y] || {}).marketSizeUsd) || 0);
+        const prevActiveMarketUsd = y > 2024
+          ? (activeKey === "all"
+            ? Number((((m.market.years || {})[y - 1] || {}).marketSizeUsd) || 0)
+            : Number((((((m.market.segments || {})[activeKey] || {}).years || {})[y - 1] || {}).marketSizeUsd || 0)))
+          : 0;
+        const activeYoy = (y > 2024 && prevActiveMarketUsd > 0) ? (activeMarketUsd / prevActiveMarketUsd) - 1 : null;
+
+        const activeTargetB = Number(((((m.market.targetsByVertical || {})[activeKey] || {})[y]) || 0)) / 1000;
+        const activeOnlineShare = Number(((((m.market.onlineShareByVertical || {})[activeKey] || {})[y]) || 0));
+        const activeBaseOnlineShare = Number(((m.market.baseOnlineShareByVertical || {})[activeKey] || 0));
+        const activeDeltaPp = (activeOnlineShare - activeBaseOnlineShare) * 100;
+        const state = String(marketRow.state || "").toLowerCase();
+        const stateLabel = state ? (state.charAt(0).toUpperCase() + state.slice(1)) : "-";
+        const stateClass = state === "past" || state === "present" || state === "future" ? state : "";
+        const online = (((((m.market.channels || {}).online || {}).years || {})[y]) || {});
+        const offline = (((((m.market.channels || {}).offline || {}).years || {})[y]) || {});
+        const channelSplitCell = `${fmtSharePct(Number(online.shareOfTotal || 0))} / ${fmtSharePct(Number(offline.shareOfTotal || 0))}`;
+        const onlineSnapshot = [
+          `All ${fmtSharePct(Number((((m.market.onlineShareByVertical || {}).all || {})[y]) || 0))}`,
+          `C&C ${fmtSharePct(Number((((m.market.onlineShareByVertical || {}).cc || {})[y]) || 0))}`,
+          `Faith ${fmtSharePct(Number((((m.market.onlineShareByVertical || {}).faith || {})[y]) || 0))}`
+        ].join(" | ");
+
+        html += "<tr>";
+        html += `<td>${y}</td>`;
+        html += `<td><span class="state-pill ${stateClass}">${stateLabel}</span></td>`;
+        html += `<td>${fmt(allMarketUsd / 1_000_000_000)}</td>`;
+        html += `<td>${channelSplitCell}</td>`;
+        html += `<td>${fmt(activeMarketUsd / 1_000_000_000)}</td>`;
+        html += `<td>${activeYoy === null ? "-" : pct(activeYoy)}</td>`;
+        html += `<td class="market-active">${fmt(activeTargetB)}</td>`;
+        html += `<td class="market-active"><strong>${fmtSharePct(activeOnlineShare)}</strong></td>`;
+        html += `<td>${fmtDeltaPp(activeDeltaPp)}</td>`;
+        html += `<td>${onlineSnapshot}</td>`;
+        html += "</tr>";
+      });
+
+      html += "</tbody>";
+      t.innerHTML = html;
+
+      const note = byId("marketNote");
+      if (!note) return;
+      const sourceNames = (m.market.sources || [])
+        .map((s) => s.name)
+        .filter(Boolean)
+        .join("; ");
+      const growth = Number(m.market.assumedNominalGrowthRate || 0);
+      const splitMethod = m.market.splitMethod || "";
+      const channelSplitMethod = m.market.channelSplitMethod || "";
+      note.textContent = `Active view: ${m.verticalLabel}. ${m.market.projectionMethod || ""} ${splitMethod} ${channelSplitMethod} ${sourceNames ? `Source: ${sourceNames}.` : ""} Faith-share split for 2026-2028 is controlled in the Targets panel (defaults: 2026 from 2025 baseline, 2028 at ${pct(FAITH_SHARE_TARGET_2028)}). Assumed nominal market growth: ${pct(growth)}.`;
+    }
+
+    function renderAcq(m) {
+      const t = byId("acqTable");
+      const focus = controls.acqYear.value;
+      const historicalView = (focus === "legacy2024" || focus === "2025");
+      let html = historicalView
+        ? `<thead><tr><th>Bracket</th><th>Share (%)</th><th>Accounts N</th><th>GPV ($M)</th><th>Year-1 GPV / Logo ($M)</th><th>Constraint</th></tr></thead><tbody>`
+        : `<thead><tr><th>Bracket</th><th>Share (%)</th><th>Required Accounts N</th><th>Required GPV ($M)</th><th>Year-1 GPV / Logo ($M)</th><th>Constraint</th></tr></thead><tbody>`;
+
+      if (historicalView) {
+        const rows = m.historicalAcq[focus] || [];
+        rows.forEach((r) => {
+          const mixPct = r.share * 100;
+          html += `<tr><td>${r.bracket}</td><td>${fmt(mixPct)}</td><td>${r.accountsN}</td><td>${fmt(r.gpvM)}</td><td>${fmtLogo(r.perLogoM)}</td><td>${r.constraint}</td></tr>`;
+        });
+        const totalN = rows.reduce((s, r) => s + Number(r.accountsN || 0), 0);
+        const totalGpv = rows.reduce((s, r) => s + Number(r.gpvM || 0), 0);
+        html += `<tr><td><strong>Total (${focus === "legacy2024" ? "Legacy 2024" : "2025"})</strong></td><td><strong>${pct(1)}</strong></td><td><strong>${totalN}</strong></td><td><strong>${fmt(totalGpv)}</strong></td><td><strong>-</strong></td><td><strong>-</strong></td></tr>`;
+      } else {
+        const focusYear = Number(focus);
+        const rows = m.acq.filter((r) => r.year === focusYear);
+        const targetNewCohort = m.perYear[focusYear]?.newCohort || 0;
+
+        rows.forEach((r) => {
+          const share = targetNewCohort > 0 ? r.feasibleGpv / targetNewCohort : 0;
+          const sharePct = share * 100;
+          const requiredRounded = Math.ceil(r.requiredLogosExact);
+          const feasibleRounded = Math.ceil(r.feasibleLogosExact);
+          const editable = m.hasManualMixOverride
+            ? (m.enteredSharesPctById[r.bracketId] ?? sharePct)
+            : sharePct;
+          let whaleCell = "-";
+          if (r.bracketId === "10m_plus") {
+            if (r.impliedLogos > m.maxWhales + 1e-9) {
+              whaleCell = `<span class=\"bad\">Capped (${fmt(r.impliedLogos)} > ${m.maxWhales})</span>`;
+            } else {
+              whaleCell = `<span>OK (${feasibleRounded})</span>`;
+            }
+          }
+          html += `<tr><td>${r.bracket}</td><td><input class=\"mix-share-inline\" data-bracket-id=\"${r.bracketId}\" data-current-share-pct=\"${sharePct}\" type=\"number\" step=\"0.1\" min=\"0\" value=\"${fmt(editable)}\" style=\"width:100px\" /></td><td>${requiredRounded}</td><td>${fmt(r.intentGpv)}</td><td>${fmtLogo(r.perLogo)}</td><td>${whaleCell}</td></tr>`;
+        });
+
+        const totalRequired = rows.reduce((s, r) => s + Math.ceil(r.requiredLogosExact), 0);
+        html += `<tr><td><strong>Total (${focusYear})</strong></td><td><strong>${pct(1)}</strong></td><td><strong>${totalRequired}</strong></td><td><strong>${fmt(targetNewCohort)}</strong></td><td><strong>-</strong></td><td><strong>-</strong></td></tr>`;
+      }
+      html += "</tbody>";
+      t.innerHTML = html;
+
+      const warning = byId("acqWarning");
+      if (!historicalView) {
+        const focusYear = Number(focus);
+        const w = m.whaleWarnings[focusYear];
+        if (w && w.impliedLogos > m.maxWhales + 1e-9) {
+          warning.style.display = "block";
+          warning.textContent = `Warning: ${focusYear} mix implies ${fmt(w.impliedLogos)} new 10M+ logos (> ${m.maxWhales}). Model caps at ${m.maxWhales} and redistributes $${fmt(w.overflowGpv)}M to non-whale brackets.`;
+        } else {
+          warning.style.display = "none";
+          warning.textContent = "";
+        }
+      } else {
+        warning.style.display = "none";
+        warning.textContent = "";
+      }
+
+      if (!historicalView) {
+        Array.from(t.querySelectorAll(".mix-share-inline")).forEach((input) => {
+          input.addEventListener("input", (e) => {
+            if (!hasManualMixOverride) {
+              hasManualMixOverride = true;
+              mixSharesById = {};
+            }
+            const id = e.target.getAttribute("data-bracket-id");
+            mixSharesById[id] = Math.max(0, Number(e.target.value) || 0);
+            render();
+          });
+        });
+      }
+    }
+
+    function renderMeta(m) {
+      byId("modelTitle").textContent = `${m.verticalLabel} Growth Model (2024-2028)`;
+      byId("sourceLine").textContent = `Generated: ${data.metadata.generated_at} | Vertical: ${m.verticalLabel} | Sources: 2024+2025 volume reports, religious cohorts, FRU sectors | Entered mix sum: ${fmt(m.shareSum)}%`;
+      byId("assumptionVerticalDef").textContent = m.verticalDefinition;
+      byId("assumptionTargetMode").textContent = m.targetMode === "targets_imply_nrr"
+        ? `Targeting mode: 2026/2027 targets imply cohort-growth factors (year-1 NRR and year-2+ NRR). 2028 remains hard cap anchor. Fit residual: ${fmt(m.nrrSolveResidual)}.`
+        : `Targeting mode: cohort-growth factors are fixed from inputs; 2028 target anchors 2026/2027 cohort sizing.`;
+
+      byId("assumptionLt").textContent = String(m.ltMonths);
+      byId("assumptionCarry").textContent = pct(m.recurringCarry);
+      byId("assumptionSplit").textContent = `${Math.round((1 - m.newRecurringShare) * 100)}/${Math.round(m.newRecurringShare * 100)}`;
+      byId("assumptionOt").textContent = pct(m.oneTimeRepeat);
+      byId("assumptionExp").textContent = pct(m.existingExpansion);
+      byId("assumptionCohortY1Nrr").textContent = pct(m.cohortYear1Nrr);
+      byId("assumptionCohortY2PlusNrr").textContent = pct(m.cohortYear2PlusNrr);
+      byId("observedNrr").textContent = pct(m.observedNrr);
+      byId("observedY1Y2").textContent = pct(m.observedY1Y2Ratio);
+      byId("assumptionLt100kPerLogo").textContent = `${fmtLogo(m.lt100kPerLogoOverride)}M ($${Math.round(m.lt100kPerLogoOverride * 1_000_000).toLocaleString()})`;
+      byId("assumptionWhales").textContent = String(m.maxWhales);
+    }
+
+    function render() {
+      const m = computeModel();
+      const targetDrivenMode = m.targetMode === "targets_imply_nrr";
+      controls.cohortYear1Nrr.disabled = targetDrivenMode;
+      controls.cohortYear2PlusNrr.disabled = targetDrivenMode;
+      if (targetDrivenMode) {
+        controls.cohortYear1Nrr.value = fmt(m.cohortYear1Nrr);
+        controls.cohortYear2PlusNrr.value = fmt(m.cohortYear2PlusNrr);
+      }
+      renderCohorts(m);
+      renderMarket(m);
+      renderAcq(m);
+      renderMeta(m);
+    }
+
+    initControls();

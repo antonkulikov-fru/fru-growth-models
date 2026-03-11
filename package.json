@@ -1,0 +1,11 @@
+{
+  "name": "growth-modeling",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "test": "npm run test:js && npm run test:py",
+    "test:js": "node --test tests/js/*.test.js",
+    "test:py": "python3 -m unittest discover -s tests/python -p 'test_*.py'"
+  }
+}
