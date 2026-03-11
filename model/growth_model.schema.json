@@ -6,6 +6,8 @@
   "type": "object",
   "required": [
     "metadata",
+    "verticals",
+    "market",
     "targets",
     "historical",
     "segmentation",
@@ -28,6 +30,21 @@
         }
       },
       "additionalProperties": true
+    },
+    "verticals": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": true
+    },
+    "market": {
+      "type": "object",
+      "required": ["personal_giving"],
+      "properties": {
+        "personal_giving": {
+          "$ref": "#/$defs/personalGivingMarket"
+        }
+      },
+      "additionalProperties": false
     },
     "targets": {
       "type": "object",
@@ -155,6 +172,10 @@
           "type": "array",
           "items": { "$ref": "#/$defs/bracketNewDistribution" },
           "minItems": 1
+        },
+        "by_vertical": {
+          "type": "object",
+          "additionalProperties": true
         }
       },
       "additionalProperties": false
@@ -167,6 +188,8 @@
         "new_donor_year1_split",
         "one_time_donor_year2_repeat_rate",
         "existing_account_expansion_rate",
+        "cohort_year1_nrr",
+        "cohort_year2plus_nrr",
         "cohort_year2_nrr",
         "new_account_year1_to_year2_gpv_ratio",
         "lt_100k_year1_gpv_per_logo_override_m",
@@ -187,6 +210,8 @@
         },
         "one_time_donor_year2_repeat_rate": { "type": "number", "minimum": 0, "maximum": 1 },
         "existing_account_expansion_rate": { "type": "number", "minimum": 0 },
+        "cohort_year1_nrr": { "type": "number", "minimum": 0.01 },
+        "cohort_year2plus_nrr": { "type": "number", "minimum": 0.01 },
         "cohort_year2_nrr": { "type": "number", "minimum": 0.01 },
         "new_account_year1_to_year2_gpv_ratio": { "type": "number", "minimum": 0.01, "maximum": 1 },
         "lt_100k_year1_gpv_per_logo_override_m": { "type": "number", "minimum": 0 },
@@ -258,6 +283,183 @@
           "additionalProperties": false
         }
       ]
+    },
+    "personalGivingMarket": {
+      "type": "object",
+      "required": [
+        "name",
+        "currency",
+        "assumed_nominal_growth_rate",
+        "projection_method",
+        "split_method",
+        "surface_split_method",
+        "channel_split_method",
+        "sources",
+        "years",
+        "segments",
+        "surfaces",
+        "channels"
+      ],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "currency": { "type": "string", "const": "USD" },
+        "assumed_nominal_growth_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "projection_method": { "type": "string", "minLength": 1 },
+        "split_method": { "type": "string", "minLength": 1 },
+        "surface_split_method": { "type": "string", "minLength": 1 },
+        "channel_split_method": { "type": "string", "minLength": 1 },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/marketSource" }
+        },
+        "years": {
+          "type": "object",
+          "required": ["2024", "2025", "2026", "2027", "2028"],
+          "properties": {
+            "2024": { "$ref": "#/$defs/marketYear" },
+            "2025": { "$ref": "#/$defs/marketYear" },
+            "2026": { "$ref": "#/$defs/marketYear" },
+            "2027": { "$ref": "#/$defs/marketYear" },
+            "2028": { "$ref": "#/$defs/marketYear" }
+          },
+          "additionalProperties": false
+        },
+        "segments": {
+          "type": "object",
+          "required": ["faith", "cc"],
+          "properties": {
+            "faith": { "$ref": "#/$defs/marketSegment" },
+            "cc": { "$ref": "#/$defs/marketSegment" }
+          },
+          "additionalProperties": false
+        },
+        "surfaces": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/marketSurface" }
+        },
+        "channels": {
+          "type": "object",
+          "required": ["online", "offline"],
+          "properties": {
+            "online": { "$ref": "#/$defs/marketChannel" },
+            "offline": { "$ref": "#/$defs/marketChannel" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "marketSource": {
+      "type": "object",
+      "required": ["name", "url"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "published_at": { "type": "string", "format": "date" }
+      },
+      "additionalProperties": false
+    },
+    "marketYear": {
+      "type": "object",
+      "required": ["state", "market_size_usd", "is_actual"],
+      "properties": {
+        "state": { "type": "string", "enum": ["past", "present", "future"] },
+        "market_size_usd": { "type": "number", "minimum": 0 },
+        "is_actual": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "marketSegment": {
+      "type": "object",
+      "required": ["name", "years"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "years": {
+          "type": "object",
+          "required": ["2024", "2025", "2026", "2027", "2028"],
+          "properties": {
+            "2024": { "$ref": "#/$defs/marketSegmentYear" },
+            "2025": { "$ref": "#/$defs/marketSegmentYear" },
+            "2026": { "$ref": "#/$defs/marketSegmentYear" },
+            "2027": { "$ref": "#/$defs/marketSegmentYear" },
+            "2028": { "$ref": "#/$defs/marketSegmentYear" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "marketSegmentYear": {
+      "type": "object",
+      "required": ["share_of_total", "market_size_usd"],
+      "properties": {
+        "share_of_total": { "type": "number", "minimum": 0, "maximum": 1 },
+        "market_size_usd": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "marketSurface": {
+      "type": "object",
+      "required": ["name", "years"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "years": {
+          "type": "object",
+          "required": ["2024", "2025", "2026", "2027", "2028"],
+          "properties": {
+            "2024": { "$ref": "#/$defs/marketSurfaceYear" },
+            "2025": { "$ref": "#/$defs/marketSurfaceYear" },
+            "2026": { "$ref": "#/$defs/marketSurfaceYear" },
+            "2027": { "$ref": "#/$defs/marketSurfaceYear" },
+            "2028": { "$ref": "#/$defs/marketSurfaceYear" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "marketSurfaceYear": {
+      "type": "object",
+      "required": ["share_of_total", "market_size_usd", "is_observed"],
+      "properties": {
+        "share_of_total": { "type": "number", "minimum": 0, "maximum": 1 },
+        "market_size_usd": { "type": "number", "minimum": 0 },
+        "is_observed": { "type": "boolean" },
+        "observed_volume_usd": { "type": ["number", "null"], "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "marketChannel": {
+      "type": "object",
+      "required": ["name", "years"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "years": {
+          "type": "object",
+          "required": ["2024", "2025", "2026", "2027", "2028"],
+          "properties": {
+            "2024": { "$ref": "#/$defs/marketChannelYear" },
+            "2025": { "$ref": "#/$defs/marketChannelYear" },
+            "2026": { "$ref": "#/$defs/marketChannelYear" },
+            "2027": { "$ref": "#/$defs/marketChannelYear" },
+            "2028": { "$ref": "#/$defs/marketChannelYear" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "marketChannelYear": {
+      "type": "object",
+      "required": ["share_of_total", "market_size_usd", "evidence"],
+      "properties": {
+        "share_of_total": { "type": "number", "minimum": 0, "maximum": 1 },
+        "market_size_usd": { "type": "number", "minimum": 0 },
+        "evidence": { "type": "string", "enum": ["observed", "inferred", "projected"] }
+      },
+      "additionalProperties": false
     }
   }
 }

@@ -12,10 +12,23 @@ INPUTS = ROOT / "_inputs" / "fru"
 OUT = ROOT / "model" / "growth_model.data.json"
 OUT_JS = ROOT / "model" / "growth_model.data.js"
 OUT_COVERAGE = ROOT / "model" / "coverage_2024_enrichment.csv"
+ONTOLOGY = INPUTS / "ontology.json"
 RELIGIOUS_COHORTS = ROOT / "model" / "religious_cohorts_2024_2025.csv"
 RELIGIOUS_REPORT_NEW = INPUTS / "2025_religious_accounts_donation_volume_report.csv"
 RELIGIOUS_REPORT_OLD = INPUTS / "religious_accounts_donation_volume_report.csv"
 RELIGIOUS_REPORT = RELIGIOUS_REPORT_NEW if RELIGIOUS_REPORT_NEW.exists() else RELIGIOUS_REPORT_OLD
+
+# External market benchmark (US individual charitable giving).
+# Source: Giving USA 2025 summary by Indiana University Lilly Family School of Philanthropy.
+PERSONAL_GIVING_MARKET_BASE_2024_USD = Decimal("392450000000")  # $392.45B
+PERSONAL_GIVING_MARKET_GROWTH_RATE = Decimal("0.05")  # 5.0% nominal growth assumption
+RELIGION_SHARE_OF_TOTAL_GIVING_2024 = Decimal("146.54") / Decimal("592.50")  # 24.73% from Giving USA 2025
+# Blackbaud channel context:
+# 2023 online share: "rose from almost 8% in 2022 to over 12% in 2023" -> use 12.0% conservative baseline.
+# 2024: online +2.2% YoY vs overall +1.9% YoY -> infer 2024 online share uplift.
+ONLINE_GIVING_SHARE_BASE_2023 = Decimal("0.12")
+ONLINE_GIVING_YOY_2024 = Decimal("1.022")
+OVERALL_GIVING_YOY_2024 = Decimal("1.019")
 
 
 def money(value: str) -> Decimal:
@@ -25,6 +38,16 @@ def money(value: str) -> Decimal:
 
 def q2(value: Decimal) -> float:
     return float(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def q4(value: Decimal) -> float:
+    return float(value.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP))
+
+
+def pretty_surface_name(surface_id: str) -> str:
+    if surface_id == "api":
+        return "API"
+    return surface_id.replace("_", " ").title()
 
 
 def norm_name(value: str) -> str:
@@ -242,6 +265,85 @@ coverage["coverage_pct"] = round(coverage["covered_total"] / coverage["total_202
 coverage["ntee_coverage_pct"] = round(coverage["with_ntee_code"] / coverage["total_2024_accounts"] * 100.0, 2)
 coverage["fru_sector_coverage_pct"] = round(coverage["with_fru_sector"] / coverage["total_2024_accounts"] * 100.0, 2)
 coverage["fru_subsector_coverage_pct"] = round(coverage["with_fru_subsector"] / coverage["total_2024_accounts"] * 100.0, 2)
+
+# Ontology: execution surfaces
+surface_types = ["website", "donor_portal", "mobile_app", "virtual_terminal", "api"]
+if ONTOLOGY.exists():
+    try:
+        ontology = json.loads(ONTOLOGY.read_text(encoding="utf-8"))
+        surface_types_raw = (
+            (((ontology or {}).get("domain_model") or {}).get("execution_surfaces") or {}).get("types")
+            or []
+        )
+        parsed_surface_types = [str(s).strip() for s in surface_types_raw if str(s).strip()]
+        if parsed_surface_types:
+            surface_types = parsed_surface_types
+    except Exception:
+        pass
+
+
+def aggregate_surface_totals_from_report(path: Path, encoding: str, delimiter: str):
+    # Surface mapping from raw source export columns to ontology execution surfaces.
+    source_columns_by_surface = {
+        "website": [
+            "Website with Elements, Onetime #",
+            "Website with Elements, Recurring #",
+            "Website without Elements, One-time #",
+            "Website without Elements, Recurring #",
+        ],
+        "donor_portal": [
+            "Campaign Pages, One-time #",
+            "Campaign Pages, Recurring #",
+            "P2P, One-time #",
+            "P2P, Recurring #",
+            "Recurring Migrations, #",
+        ],
+        "mobile_app": [],
+        "virtual_terminal": [
+            "Virtual Terminal, One-time #",
+            "Virtual Terminal, Recurring #",
+        ],
+        "api": [
+            "API, One-time #",
+            "API, Recurring #",
+        ],
+    }
+    totals_by_surface = {s: Decimal("0") for s in surface_types}
+    total_gpv = Decimal("0")
+    with path.open("r", encoding=encoding, newline="") as f:
+        reader = csv.DictReader(f, delimiter=delimiter)
+        for row in reader:
+            account_id = (row.get("Account ID") or "").strip()
+            if not account_id or account_id == "Total":
+                continue
+            total_gpv += money(row.get("Total Donations Volume $"))
+            for s in surface_types:
+                for col in source_columns_by_surface.get(s, []):
+                    totals_by_surface[s] += money(row.get(col))
+
+    mapped_total = sum(totals_by_surface.values(), Decimal("0"))
+    if mapped_total > 0 and total_gpv > 0:
+        # Normalize to total GPV to absorb tiny source rounding drift.
+        scale = total_gpv / mapped_total
+        totals_by_surface = {k: v * scale for k, v in totals_by_surface.items()}
+    return total_gpv, totals_by_surface
+
+
+surface_totals_2024_total, surface_totals_2024 = aggregate_surface_totals_from_report(
+    INPUTS / "2024_all_accounts_donations.csv", "utf-16", "\t"
+)
+surface_totals_2025_total, surface_totals_2025 = aggregate_surface_totals_from_report(
+    INPUTS / "All Accounts Volume by Source & Frequency (2025).csv", "utf-8-sig", ","
+)
+
+surface_share_2024 = {
+    s: (surface_totals_2024[s] / surface_totals_2024_total) if surface_totals_2024_total > 0 else Decimal("0")
+    for s in surface_types
+}
+surface_share_2025 = {
+    s: (surface_totals_2025[s] / surface_totals_2025_total) if surface_totals_2025_total > 0 else Decimal("0")
+    for s in surface_types
+}
 
 # Totals
 ids_2024 = set(accounts_2024)
@@ -488,6 +590,80 @@ for k in ("all", "cc", "faith"):
         },
     }
 
+personal_giving_market_years = {}
+personal_giving_segments = {"faith": {"years": {}}, "cc": {"years": {}}}
+personal_giving_surfaces = {
+    s: {
+        "name": pretty_surface_name(s),
+        "years": {},
+    }
+    for s in surface_types
+}
+online_share_2024 = ONLINE_GIVING_SHARE_BASE_2023 * (ONLINE_GIVING_YOY_2024 / OVERALL_GIVING_YOY_2024)
+if online_share_2024 < 0:
+    online_share_2024 = Decimal("0")
+if online_share_2024 > 1:
+    online_share_2024 = Decimal("1")
+offline_share_2024 = Decimal("1") - online_share_2024
+personal_giving_channels = {
+    "online": {"name": "Online", "years": {}},
+    "offline": {"name": "Offline", "years": {}},
+}
+market_size = PERSONAL_GIVING_MARKET_BASE_2024_USD
+current_year = datetime.now(timezone.utc).year
+for year in (2024, 2025, 2026, 2027, 2028):
+    year_key = str(year)
+    state = "past" if year < current_year else ("present" if year == current_year else "future")
+    faith_market_size = market_size * RELIGION_SHARE_OF_TOTAL_GIVING_2024
+    cc_market_size = market_size - faith_market_size
+    personal_giving_market_years[year_key] = {
+        "state": state,
+        "market_size_usd": q2(market_size),
+        "is_actual": year == 2024,
+    }
+    personal_giving_segments["faith"]["years"][year_key] = {
+        "share_of_total": q4(RELIGION_SHARE_OF_TOTAL_GIVING_2024),
+        "market_size_usd": q2(faith_market_size),
+    }
+    personal_giving_segments["cc"]["years"][year_key] = {
+        "share_of_total": q4(Decimal("1") - RELIGION_SHARE_OF_TOTAL_GIVING_2024),
+        "market_size_usd": q2(cc_market_size),
+    }
+    for s in surface_types:
+        if year == 2024:
+            share = surface_share_2024.get(s, Decimal("0"))
+            observed_volume = surface_totals_2024.get(s, Decimal("0"))
+            is_observed = True
+        elif year == 2025:
+            share = surface_share_2025.get(s, Decimal("0"))
+            observed_volume = surface_totals_2025.get(s, Decimal("0"))
+            is_observed = True
+        else:
+            share = surface_share_2025.get(s, Decimal("0"))
+            observed_volume = None
+            is_observed = False
+        personal_giving_surfaces[s]["years"][year_key] = {
+            "share_of_total": q4(share),
+            "market_size_usd": q2(market_size * share),
+            "is_observed": is_observed,
+            "observed_volume_usd": q2(observed_volume) if observed_volume is not None else None,
+        }
+    if year == 2024:
+        channel_evidence = "inferred"
+    else:
+        channel_evidence = "projected"
+    personal_giving_channels["online"]["years"][year_key] = {
+        "share_of_total": q4(online_share_2024),
+        "market_size_usd": q2(market_size * online_share_2024),
+        "evidence": channel_evidence,
+    }
+    personal_giving_channels["offline"]["years"][year_key] = {
+        "share_of_total": q4(offline_share_2024),
+        "market_size_usd": q2(market_size * offline_share_2024),
+        "evidence": channel_evidence,
+    }
+    market_size = market_size * (Decimal("1") + PERSONAL_GIVING_MARKET_GROWTH_RATE)
+
 model = {
     "metadata": {
         "title": "Growth Model",
@@ -501,9 +677,71 @@ model = {
             str(INPUTS / "All Accounts Volume by Source & Frequency (2025).csv"),
             *religious_source_files,
             str(INPUTS / "FUNDRAISEUP sectors.csv"),
+            str(ONTOLOGY),
         ],
     },
     "verticals": verticals,
+    "market": {
+        "personal_giving": {
+            "name": "US personal charitable giving (individuals)",
+            "currency": "USD",
+            "assumed_nominal_growth_rate": q4(PERSONAL_GIVING_MARKET_GROWTH_RATE),
+            "projection_method": (
+                "2024 is actual from Giving USA 2025. "
+                "2025-2028 are projected at 5.0% nominal annual growth, aligned to "
+                "Giving USA's 40-year average total giving growth in current dollars."
+            ),
+            "split_method": (
+                "Faith market is proxied using Giving USA 2025 recipient split: "
+                "Religion received $146.54B out of $592.50B total giving in 2024 (24.73%). "
+                "This 24.73% share is applied to the personal giving market in 2024-2028; "
+                "C&C market is the residual non-religious share."
+            ),
+            "surface_split_method": (
+                "Execution surfaces are from ontology.json. 2024 and 2025 surface shares are estimated "
+                "from FRU source columns: website=(with+without elements), donor_portal=(campaign pages+p2p+recurring migrations), "
+                "virtual_terminal, api, mobile_app (no explicit export column). "
+                "2026-2028 keep 2025 surface mix constant."
+            ),
+            "channel_split_method": (
+                "Online/offline split uses Blackbaud public benchmarks. "
+                "2023 online share baseline is 12.0% ('over 12%'). "
+                "2024 online share is inferred by applying Blackbaud 2024 relative growth "
+                "(online +2.2% vs overall +1.9%) to the 2023 baseline. "
+                "2025-2028 hold 2024 inferred online share constant."
+            ),
+            "sources": [
+                {
+                    "name": "Giving USA 2025 summary (Indiana University Lilly Family School of Philanthropy)",
+                    "url": "https://philanthropy.indianapolis.iu.edu/news-events/news/_news/2025/giving-usa-2025.html",
+                    "published_at": "2025-06-24",
+                },
+                {
+                    "name": "Blackbaud Institute 2024 Spotlight: online giving grew 2.2% (overall 1.9%)",
+                    "url": "https://www.blackbaud.com/newsroom/article/blackbaud-institute-releases-2024-spotlight-on-trends-in-us-charitable-giving",
+                    "published_at": "2025-02-11",
+                },
+                {
+                    "name": "Blackbaud Institute 2023 Spotlight: online share rose to over 12% in 2023",
+                    "url": "https://www.blackbaud.com/newsroom/article/blackbaud-institute-releases-2023-spotlight-on-trends-in-us-charitable-giving",
+                    "published_at": "2024-02-20",
+                }
+            ],
+            "years": personal_giving_market_years,
+            "segments": {
+                "faith": {
+                    "name": "Religious market",
+                    **personal_giving_segments["faith"],
+                },
+                "cc": {
+                    "name": "Cause & Cure market (non-religious)",
+                    **personal_giving_segments["cc"],
+                },
+            },
+            "surfaces": personal_giving_surfaces,
+            "channels": personal_giving_channels,
+        }
+    },
     "targets": {
         "cc_gpv_m": verticals["cc"]["targets_gpv_m"],
         "take_rate": 0.03,
@@ -546,7 +784,9 @@ model = {
         "new_donor_year1_split": {"one_time": q2(Decimal("1") - new_donor_recurring_share), "recurring": q2(new_donor_recurring_share)},
         "one_time_donor_year2_repeat_rate": q2(one_time_repeat_rate),
         "existing_account_expansion_rate": verticals["cc"]["historical"]["legacy_observed_kpis"]["implied_existing_account_expansion_rate"],
-        "cohort_year2_nrr": 1.35,
+        "cohort_year1_nrr": 1.8,
+        "cohort_year2plus_nrr": 1.15,
+        "cohort_year2_nrr": 1.15,
         "new_account_year1_to_year2_gpv_ratio": 1.0,
         "lt_100k_year1_gpv_per_logo_override_m": 0.05,
         "max_new_whales_per_year": 2,

@@ -4,13 +4,14 @@ window.GROWTH_MODEL_DATA = {
     "description": "Global growth model with vertical switch for All, C&C, and Faith.",
     "currency": "USD",
     "unit": "M",
-    "generated_at": "2026-03-05T10:09:00+00:00",
+    "generated_at": "2026-03-11T21:17:52+00:00",
     "source_files": [
       "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/2024_all_accounts_donations.csv",
       "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/2025_all_orgs_dontations__fru_enriched.csv",
       "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/All Accounts Volume by Source & Frequency (2025).csv",
       "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/model/religious_cohorts_2024_2025.csv",
-      "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/FUNDRAISEUP sectors.csv"
+      "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/FUNDRAISEUP sectors.csv",
+      "/Users/antonkulikov/Projects/fundraiseup/growth-modeling/_inputs/fru/ontology.json"
     ]
   },
   "verticals": {
@@ -480,6 +481,352 @@ window.GROWTH_MODEL_DATA = {
             "median_year1_gpv": 26013164.0
           }
         ]
+      }
+    }
+  },
+  "market": {
+    "personal_giving": {
+      "name": "US personal charitable giving (individuals)",
+      "currency": "USD",
+      "assumed_nominal_growth_rate": 0.05,
+      "projection_method": "2024 is actual from Giving USA 2025. 2025-2028 are projected at 5.0% nominal annual growth, aligned to Giving USA's 40-year average total giving growth in current dollars.",
+      "split_method": "Faith market is proxied using Giving USA 2025 recipient split: Religion received $146.54B out of $592.50B total giving in 2024 (24.73%). This 24.73% share is applied to the personal giving market in 2024-2028; C&C market is the residual non-religious share.",
+      "surface_split_method": "Execution surfaces are from ontology.json. 2024 and 2025 surface shares are estimated from FRU source columns: website=(with+without elements), donor_portal=(campaign pages+p2p+recurring migrations), virtual_terminal, api, mobile_app (no explicit export column). 2026-2028 keep 2025 surface mix constant.",
+      "channel_split_method": "Online/offline split uses Blackbaud public benchmarks. 2023 online share baseline is 12.0% ('over 12%'). 2024 online share is inferred by applying Blackbaud 2024 relative growth (online +2.2% vs overall +1.9%) to the 2023 baseline. 2025-2028 hold 2024 inferred online share constant.",
+      "sources": [
+        {
+          "name": "Giving USA 2025 summary (Indiana University Lilly Family School of Philanthropy)",
+          "url": "https://philanthropy.indianapolis.iu.edu/news-events/news/_news/2025/giving-usa-2025.html",
+          "published_at": "2025-06-24"
+        },
+        {
+          "name": "Blackbaud Institute 2024 Spotlight: online giving grew 2.2% (overall 1.9%)",
+          "url": "https://www.blackbaud.com/newsroom/article/blackbaud-institute-releases-2024-spotlight-on-trends-in-us-charitable-giving",
+          "published_at": "2025-02-11"
+        },
+        {
+          "name": "Blackbaud Institute 2023 Spotlight: online share rose to over 12% in 2023",
+          "url": "https://www.blackbaud.com/newsroom/article/blackbaud-institute-releases-2023-spotlight-on-trends-in-us-charitable-giving",
+          "published_at": "2024-02-20"
+        }
+      ],
+      "years": {
+        "2024": {
+          "state": "past",
+          "market_size_usd": 392450000000.0,
+          "is_actual": true
+        },
+        "2025": {
+          "state": "past",
+          "market_size_usd": 412072500000.0,
+          "is_actual": false
+        },
+        "2026": {
+          "state": "present",
+          "market_size_usd": 432676125000.0,
+          "is_actual": false
+        },
+        "2027": {
+          "state": "future",
+          "market_size_usd": 454309931250.0,
+          "is_actual": false
+        },
+        "2028": {
+          "state": "future",
+          "market_size_usd": 477025427812.5,
+          "is_actual": false
+        }
+      },
+      "segments": {
+        "faith": {
+          "name": "Religious market",
+          "years": {
+            "2024": {
+              "share_of_total": 0.2473,
+              "market_size_usd": 97062654852.32
+            },
+            "2025": {
+              "share_of_total": 0.2473,
+              "market_size_usd": 101915787594.94
+            },
+            "2026": {
+              "share_of_total": 0.2473,
+              "market_size_usd": 107011576974.68
+            },
+            "2027": {
+              "share_of_total": 0.2473,
+              "market_size_usd": 112362155823.42
+            },
+            "2028": {
+              "share_of_total": 0.2473,
+              "market_size_usd": 117980263614.59
+            }
+          }
+        },
+        "cc": {
+          "name": "Cause & Cure market (non-religious)",
+          "years": {
+            "2024": {
+              "share_of_total": 0.7527,
+              "market_size_usd": 295387345147.68
+            },
+            "2025": {
+              "share_of_total": 0.7527,
+              "market_size_usd": 310156712405.06
+            },
+            "2026": {
+              "share_of_total": 0.7527,
+              "market_size_usd": 325664548025.32
+            },
+            "2027": {
+              "share_of_total": 0.7527,
+              "market_size_usd": 341947775426.58
+            },
+            "2028": {
+              "share_of_total": 0.7527,
+              "market_size_usd": 359045164197.91
+            }
+          }
+        }
+      },
+      "surfaces": {
+        "website": {
+          "name": "Website",
+          "years": {
+            "2024": {
+              "share_of_total": 0.7585,
+              "market_size_usd": 297681395536.49,
+              "is_observed": true,
+              "observed_volume_usd": 857429912.13
+            },
+            "2025": {
+              "share_of_total": 0.716,
+              "market_size_usd": 295052827615.66,
+              "is_observed": true,
+              "observed_volume_usd": 1230265471.32
+            },
+            "2026": {
+              "share_of_total": 0.716,
+              "market_size_usd": 309805468996.45,
+              "is_observed": false,
+              "observed_volume_usd": null
+            },
+            "2027": {
+              "share_of_total": 0.716,
+              "market_size_usd": 325295742446.27,
+              "is_observed": false,
+              "observed_volume_usd": null
+            },
+            "2028": {
+              "share_of_total": 0.716,
+              "market_size_usd": 341560529568.58,
+              "is_observed": false,
+              "observed_volume_usd": null
+            }
+          }
+        },
+        "donor_portal": {
+          "name": "Donor Portal",
+          "years": {
+            "2024": {
+              "share_of_total": 0.2203,
+              "market_size_usd": 86445286004.38,
+              "is_observed": true,
+              "observed_volume_usd": 248993639.15
+            },
+            "2025": {
+              "share_of_total": 0.2614,
+              "market_size_usd": 107728267628.39,
+              "is_observed": true,
+              "observed_volume_usd": 449188604.7
+            },
+            "2026": {
+              "share_of_total": 0.2614,
+              "market_size_usd": 113114681009.81,
+              "is_observed": false,
+              "observed_volume_usd": null
+            },
+            "2027": {
+              "share_of_total": 0.2614,
+              "market_size_usd": 118770415060.31,
+              "is_observed": false,
+              "observed_volume_usd": null
+            },
+            "2028": {
+              "share_of_total": 0.2614,
+              "market_size_usd": 124708935813.32,
+              "is_observed": false,
+              "observed_volume_usd": null
+            }
+          }
+        },
+        "mobile_app": {
+          "name": "Mobile App",
+          "years": {
+            "2024": {
+              "share_of_total": 0.0,
+              "market_size_usd": 0.0,
+              "is_observed": true,
+              "observed_volume_usd": 0.0
+            },
+            "2025": {
+              "share_of_total": 0.0,
+              "market_size_usd": 0.0,
+              "is_observed": true,
+              "observed_volume_usd": 0.0
+            },
+            "2026": {
+              "share_of_total": 0.0,
+              "market_size_usd": 0.0,
+              "is_observed": false,
+              "observed_volume_usd": null
+            },
+            "2027": {
+              "share_of_total": 0.0,
+              "market_size_usd": 0.0,
+              "is_observed": false,
+              "observed_volume_usd": null
+            },
+            "2028": {
+              "share_of_total": 0.0,
+              "market_size_usd": 0.0,
+              "is_observed": false,
+              "observed_volume_usd": null
+            }
+          }
+        },
+        "virtual_terminal": {
+          "name": "Virtual Terminal",
+          "years": {
+            "2024": {
+              "share_of_total": 0.0212,
+              "market_size_usd": 8315612135.4,
+              "is_observed": true,
+              "observed_volume_usd": 23951965.72
+            },
+            "2025": {
+              "share_of_total": 0.021,
+              "market_size_usd": 8673666388.99,
+              "is_observed": true,
+              "observed_volume_usd": 36166107.45
+            },
+            "2026": {
+              "share_of_total": 0.021,
+              "market_size_usd": 9107349708.44,
+              "is_observed": false,
+              "observed_volume_usd": null
+            },
+            "2027": {
+              "share_of_total": 0.021,
+              "market_size_usd": 9562717193.86,
+              "is_observed": false,
+              "observed_volume_usd": null
+            },
+            "2028": {
+              "share_of_total": 0.021,
+              "market_size_usd": 10040853053.55,
+              "is_observed": false,
+              "observed_volume_usd": null
+            }
+          }
+        },
+        "api": {
+          "name": "API",
+          "years": {
+            "2024": {
+              "share_of_total": 0.0,
+              "market_size_usd": 7706323.73,
+              "is_observed": true,
+              "observed_volume_usd": 22197.0
+            },
+            "2025": {
+              "share_of_total": 0.0015,
+              "market_size_usd": 617738366.95,
+              "is_observed": true,
+              "observed_volume_usd": 2575749.53
+            },
+            "2026": {
+              "share_of_total": 0.0015,
+              "market_size_usd": 648625285.3,
+              "is_observed": false,
+              "observed_volume_usd": null
+            },
+            "2027": {
+              "share_of_total": 0.0015,
+              "market_size_usd": 681056549.57,
+              "is_observed": false,
+              "observed_volume_usd": null
+            },
+            "2028": {
+              "share_of_total": 0.0015,
+              "market_size_usd": 715109377.05,
+              "is_observed": false,
+              "observed_volume_usd": null
+            }
+          }
+        }
+      },
+      "channels": {
+        "online": {
+          "name": "Online",
+          "years": {
+            "2024": {
+              "share_of_total": 0.1204,
+              "market_size_usd": 47232647693.82,
+              "evidence": "inferred"
+            },
+            "2025": {
+              "share_of_total": 0.1204,
+              "market_size_usd": 49594280078.51,
+              "evidence": "projected"
+            },
+            "2026": {
+              "share_of_total": 0.1204,
+              "market_size_usd": 52073994082.43,
+              "evidence": "projected"
+            },
+            "2027": {
+              "share_of_total": 0.1204,
+              "market_size_usd": 54677693786.56,
+              "evidence": "projected"
+            },
+            "2028": {
+              "share_of_total": 0.1204,
+              "market_size_usd": 57411578475.88,
+              "evidence": "projected"
+            }
+          }
+        },
+        "offline": {
+          "name": "Offline",
+          "years": {
+            "2024": {
+              "share_of_total": 0.8796,
+              "market_size_usd": 345217352306.18,
+              "evidence": "inferred"
+            },
+            "2025": {
+              "share_of_total": 0.8796,
+              "market_size_usd": 362478219921.49,
+              "evidence": "projected"
+            },
+            "2026": {
+              "share_of_total": 0.8796,
+              "market_size_usd": 380602130917.57,
+              "evidence": "projected"
+            },
+            "2027": {
+              "share_of_total": 0.8796,
+              "market_size_usd": 399632237463.44,
+              "evidence": "projected"
+            },
+            "2028": {
+              "share_of_total": 0.8796,
+              "market_size_usd": 419613849336.62,
+              "evidence": "projected"
+            }
+          }
+        }
       }
     }
   },
@@ -1056,7 +1403,9 @@ window.GROWTH_MODEL_DATA = {
     },
     "one_time_donor_year2_repeat_rate": 0.4,
     "existing_account_expansion_rate": 0.94,
-    "cohort_year2_nrr": 1.35,
+    "cohort_year1_nrr": 1.8,
+    "cohort_year2plus_nrr": 1.15,
+    "cohort_year2_nrr": 1.15,
     "new_account_year1_to_year2_gpv_ratio": 1.0,
     "lt_100k_year1_gpv_per_logo_override_m": 0.05,
     "max_new_whales_per_year": 2,
